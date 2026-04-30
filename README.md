@@ -16,6 +16,10 @@ Dieses Projekt ermöglicht die Eingabe von chemischen Strukturen über den 2D-Ed
   - 2 Atome = Bindungslänge / Distanz (Å)
   - 3 Atome = Bindungswinkel (°)
   - 4 Atome = Torsions- / Diederwinkel (°)
+- **Oberflächen-Visualisierung**: Berechnung und Darstellung molekularer Oberflächen:
+  - **Van der Waals (VDW)** und **Solvent Accessible Surface (SAS)**.
+  - **Electrostatic Potential (ESP)**: Farbzuordnung basierend auf Gasteiger-Partialladungen (Rot = negativ, Blau = positiv).
+  - **Hydrophobicity (LogP)**: Visualisierung von polaren und lipophilen Regionen basierend auf Crippen-LogP-Beiträgen.
 
 ## xTB Integration (Optional)
 Um die xTB-Optimierung nutzen zu können, muss die externe Binary hinterlegt werden:

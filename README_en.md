@@ -16,6 +16,10 @@ This project allows the input of chemical structures via the **Ketcher** 2D edit
   - 2 Atoms = Bond length / Distance (Å)
   - 3 Atoms = Bond angle (°)
   - 4 Atoms = Torsion / Dihedral angle (°)
+- **Surface Visualization**: Calculation and visualization of molecular surfaces:
+  - **Van der Waals (VDW)** and **Solvent Accessible Surface (SAS)**.
+  - **Electrostatic Potential (ESP)**: Color mapping based on Gasteiger partial charges (Red = negative, Blue = positive).
+  - **Hydrophobicity (LogP)**: Visualization of polar and lipophilic regions based on Crippen LogP contributions.
 
 ## xTB Integration (Optional)
 To use xTB optimization, the external binary must be provided:

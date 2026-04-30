@@ -39,11 +39,24 @@ HTML_3DMOL = """
     var currentModel = null;
     var showLabels = false;
 
-    function loadMolecule(molBlock) {
+    var currentSurface = null;
+
+    function loadMolecule(molBlock, props) {
         viewer.clear();
         selectedAtoms = [];
         document.getElementById('info').innerHTML = "Molecule loaded. Click atoms for measurements.";
         currentModel = viewer.addModel(molBlock, "mol");
+        
+        if (props) {
+            var atoms = currentModel.selectedAtoms({});
+            for(var i=0; i<atoms.length; i++) {
+                if (props[i]) {
+                    atoms[i].charge = props[i].charge;
+                    atoms[i].logp = props[i].logp;
+                }
+            }
+        }
+        
         applyStyle("stick");
         viewer.zoomTo();
         
@@ -67,6 +80,28 @@ HTML_3DMOL = """
         
         viewer.setStyle({}, style);
         if (showLabels) updateLabels();
+        viewer.render();
+    }
+
+    function applySurface(surfaceType) {
+        if (!currentModel) return;
+        viewer.removeAllSurfaces();
+        
+        if (surfaceType === "Van der Waals") {
+            viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: 'white'});
+        } else if (surfaceType === "Solvent Accessible") {
+            viewer.addSurface($3Dmol.SurfaceType.SAS, {opacity: 0.85, color: 'lightblue'});
+        } else if (surfaceType === "Electrostatic Potential") {
+            viewer.addSurface($3Dmol.SurfaceType.VDW, {
+                opacity: 0.85,
+                map: {prop: 'charge', scheme: new $3Dmol.Gradient.RWB(-0.5, 0.5)}
+            });
+        } else if (surfaceType === "Hydrophobicity (LogP)") {
+            viewer.addSurface($3Dmol.SurfaceType.VDW, {
+                opacity: 0.85,
+                map: {prop: 'logp', scheme: new $3Dmol.Gradient.ROYGB(-0.5, 0.5)}
+            });
+        }
         viewer.render();
     }
 
@@ -282,6 +317,12 @@ class MolViewer3D(QMainWindow):
         self.style_combo.currentTextChanged.connect(self.change_style)
         ctrl_bar.addWidget(self.style_combo)
         
+        ctrl_bar.addWidget(QLabel("Surface:"))
+        self.surface_combo = QComboBox()
+        self.surface_combo.addItems(["None", "Van der Waals", "Solvent Accessible", "Electrostatic Potential", "Hydrophobicity (LogP)"])
+        self.surface_combo.currentTextChanged.connect(self.change_surface)
+        ctrl_bar.addWidget(self.surface_combo)
+        
         self.label_cb = QCheckBox("Atom Labels")
         self.label_cb.toggled.connect(self.toggle_labels)
         ctrl_bar.addWidget(self.label_cb)
@@ -321,6 +362,10 @@ class MolViewer3D(QMainWindow):
             "Ball & Stick": "ballstick"
         }
         js = f"applyStyle('{style_map.get(text, 'stick')}');"
+        self.web_view.page().runJavaScript(js)
+
+    def change_surface(self, text):
+        js = f"applySurface('{text}');"
         self.web_view.page().runJavaScript(js)
 
     def toggle_labels(self, state):
@@ -400,9 +445,33 @@ class MolViewer3D(QMainWindow):
             self.statusBar().showMessage("xTB Error.")
 
     def update_viewer(self, mol):
+        try:
+            from rdkit.Chem import Crippen
+            AllChem.ComputeGasteigerCharges(mol)
+            logp_contribs = Crippen.CrippenContribs(mol)
+        except Exception as e:
+            print("Warning: Could not compute properties:", e)
+            logp_contribs = [(0,0)] * mol.GetNumAtoms()
+
+        props = []
+        for i, atom in enumerate(mol.GetAtoms()):
+            charge = 0.0
+            logp = 0.0
+            try:
+                charge = float(atom.GetProp("_GasteigerCharge"))
+                if math.isnan(charge) or math.isinf(charge): charge = 0.0
+            except:
+                pass
+            try:
+                logp = logp_contribs[i][0]
+            except:
+                pass
+            props.append({"charge": charge, "logp": logp})
+
         mol_block = Chem.MolToMolBlock(mol)
-        js = f"loadMolecule({json.dumps(mol_block)});"
+        js = f"loadMolecule({json.dumps(mol_block)}, {json.dumps(props)});"
         self.web_view.page().runJavaScript(js)
+        self.change_surface(self.surface_combo.currentText())
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
