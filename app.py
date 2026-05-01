@@ -4,7 +4,8 @@ import json
 import math
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QLineEdit, QPushButton, 
-                             QMessageBox, QSplitter, QStackedWidget, QDialog)
+                             QMessageBox, QSplitter, QStackedWidget, QDialog,
+                             QFileDialog, QAction, QMenuBar, QInputDialog)
 from PyQt5.QtCore import Qt, QUrl
 from PyQt5.QtGui import QFont, QIcon
 
@@ -40,9 +41,12 @@ HTML_3DMOL = """
     var showLabels = false;
 
     var currentSurface = null;
+    var currentStyleType = "stick";
+    var overlayStates = [];
 
     function loadMolecule(molBlock, props) {
         viewer.clear();
+        overlayStates = [];
         selectedAtoms = [];
         document.getElementById('info').innerHTML = "Molecule loaded. Click atoms for measurements.";
         currentModel = viewer.addModel(molBlock, "mol");
@@ -57,7 +61,7 @@ HTML_3DMOL = """
             }
         }
         
-        applyStyle("stick");
+        applyStyle(currentStyleType);
         viewer.zoomTo();
         
         // Robuster Klick-Handler für Atome via Viewer
@@ -70,15 +74,72 @@ HTML_3DMOL = """
         viewer.render();
     }
 
-    function applyStyle(styleType) {
-        if (!currentModel) return;
-        var style = {};
-        if (styleType === "stick") style = {stick: {radius: 0.15}, sphere: {scale: 0.25}};
-        else if (styleType === "sphere") style = {sphere: {}};
-        else if (styleType === "line") style = {line: {}};
-        else if (styleType === "ballstick") style = {stick: {radius: 0.05}, sphere: {scale: 0.3}};
+    function addMoleculeOverlay(molBlock, props, colorHex) {
+        var model = viewer.addModel(molBlock, "mol");
+        if (!currentModel) currentModel = model;
         
-        viewer.setStyle({}, style);
+        if (props) {
+            var atoms = model.selectedAtoms({});
+            for(var i=0; i<atoms.length; i++) {
+                if (props[i]) {
+                    atoms[i].charge = props[i].charge;
+                    atoms[i].logp = props[i].logp;
+                }
+            }
+        }
+        
+        overlayStates.push({visible: true, color: colorHex || ""});
+        applyStyle(currentStyleType);
+        viewer.zoomTo();
+        
+        viewer.setClickable({}, true, function(atom, viewer, event, container) {
+            if(atom) handleAtomClick(atom);
+        });
+        
+        viewer.render();
+    }
+
+    function updateOverlay(index, visible, colorHex) {
+        if (overlayStates[index]) {
+            overlayStates[index].visible = visible;
+            overlayStates[index].color = colorHex;
+            applyStyle();
+        }
+    }
+
+    function applyStyle(styleType) {
+        if (styleType) currentStyleType = styleType;
+        if (!currentModel) return;
+        
+        var baseStyle = {};
+        if (currentStyleType === "stick") baseStyle = {stick: {radius: 0.15}, sphere: {scale: 0.25}};
+        else if (currentStyleType === "sphere") baseStyle = {sphere: {}};
+        else if (currentStyleType === "line") baseStyle = {line: {}};
+        else if (currentStyleType === "ballstick") baseStyle = {stick: {radius: 0.05}, sphere: {scale: 0.3}};
+        
+        viewer.setStyle({}, baseStyle);
+        
+        var models = viewer.models || [];
+        for (var i = 1; i < models.length; i++) {
+            var m = models[i];
+            var state = overlayStates[i - 1];
+            if (!state) continue;
+            
+            if (!state.visible) {
+                try { viewer.setStyle({model: m}, {line:{hidden:true}, stick:{hidden:true}, sphere:{hidden:true}}); } catch(e) {}
+            } else {
+                if (state.color) {
+                    var cStyle = JSON.parse(JSON.stringify(baseStyle));
+                    if (cStyle.stick) cStyle.stick.color = state.color;
+                    if (cStyle.sphere) cStyle.sphere.color = state.color;
+                    if (cStyle.line) cStyle.line.color = state.color;
+                    try { viewer.setStyle({model: m}, cStyle); } catch(e) {}
+                } else {
+                    try { viewer.setStyle({model: m}, baseStyle); } catch(e) {}
+                }
+            }
+        }
+        
         if (showLabels) updateLabels();
         viewer.render();
     }
@@ -211,7 +272,7 @@ HTML_3DMOL = """
 """
 
 
-from PyQt5.QtWidgets import QComboBox, QCheckBox
+from PyQt5.QtWidgets import QComboBox, QCheckBox, QTableWidget, QTableWidgetItem, QHeaderView
 
 class KetcherDialog(QDialog):
     def __init__(self, parent=None):
@@ -267,19 +328,23 @@ class MolViewer3D(QMainWindow):
 
     def setup_ui(self):
         self.setStyleSheet("""
-            QMainWindow { background-color: #1e1e1e; }
+            QMainWindow, QDialog, QMessageBox { background-color: #1e1e1e; color: white; }
             QLabel { color: #ffffff; font-family: 'Segoe UI'; }
             QLineEdit { background-color: #2d2d2d; color: white; border: 1px solid #444; padding: 6px; border-radius: 4px; }
             QPushButton { background-color: #333; color: white; border: none; padding: 8px 16px; border-radius: 4px; font-family: 'Segoe UI'; }
             QPushButton:hover { background-color: #444; }
             QComboBox { background-color: #333; color: white; border: 1px solid #444; padding: 5px; border-radius: 4px; }
             QComboBox QAbstractItemView { background-color: #333; color: white; selection-background-color: #0078D4; border: 1px solid #444; }
-            QCheckBox { color: white; }
+            QCheckBox { color: white; spacing: 5px; }
+            QCheckBox::indicator { width: 16px; height: 16px; background-color: #333; border: 1px solid #555; border-radius: 3px; }
+            QCheckBox::indicator:checked { background-color: #0078D4; border: 1px solid #0078D4; }
             #OptimizeBtn { background-color: #0078D4; font-weight: bold; }
             #OptimizeBtn:hover { background-color: #0086f0; }
             #ClearBtn { background-color: #c42b1c; }
             #ClearBtn:hover { background-color: #e81123; }
         """)
+
+        self.create_menu()
 
         main_widget = QWidget()
         self.setCentralWidget(main_widget)
@@ -335,6 +400,43 @@ class MolViewer3D(QMainWindow):
         ctrl_bar.addWidget(self.clear_meas_btn)
         
         main_layout.addLayout(ctrl_bar)
+
+        # Overlay Control Bar
+        self.overlay_table = QTableWidget(0, 3)
+        self.overlay_table.setHorizontalHeaderLabels(["Overlay", "Sichtbar", "Farbe"])
+        self.overlay_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Stretch)
+        self.overlay_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.ResizeToContents)
+        self.overlay_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Interactive)
+        self.overlay_table.setColumnWidth(2, 120)
+        self.overlay_table.setFixedHeight(120)
+        self.overlay_table.verticalHeader().setVisible(False)
+        self.overlay_table.setEditTriggers(QTableWidget.NoEditTriggers)
+        self.overlay_table.setSelectionMode(QTableWidget.NoSelection)
+        self.overlay_table.setVisible(False)
+        
+        # Gallery Bar
+        self.gallery_widget = QWidget()
+        gallery_layout = QHBoxLayout(self.gallery_widget)
+        gallery_layout.setContentsMargins(0, 5, 0, 5)
+        
+        self.prev_btn = QPushButton("◀ Previous Molecule")
+        self.prev_btn.clicked.connect(self.prev_molecule)
+        self.next_btn = QPushButton("Next Molecule ▶")
+        self.next_btn.clicked.connect(self.next_molecule)
+        self.gallery_label = QLabel("Molecule 1 / 1")
+        self.gallery_label.setAlignment(Qt.AlignCenter)
+        self.gallery_label.setStyleSheet("font-weight: bold;")
+        
+        gallery_layout.addStretch()
+        gallery_layout.addWidget(self.prev_btn)
+        gallery_layout.addWidget(self.gallery_label)
+        gallery_layout.addWidget(self.next_btn)
+        gallery_layout.addStretch()
+        
+        self.gallery_widget.setVisible(False)
+        
+        main_layout.addWidget(self.gallery_widget)
+        main_layout.addWidget(self.overlay_table)
 
         # Main View (3D)
         self.web_view = QWebEngineView()
@@ -445,6 +547,9 @@ class MolViewer3D(QMainWindow):
             self.statusBar().showMessage("xTB Error.")
 
     def update_viewer(self, mol):
+        self.current_mol = mol
+        self.overlay_table.setRowCount(0)
+        self.overlay_table.setVisible(False)
         try:
             from rdkit.Chem import Crippen
             AllChem.ComputeGasteigerCharges(mol)
@@ -472,6 +577,268 @@ class MolViewer3D(QMainWindow):
         js = f"loadMolecule({json.dumps(mol_block)}, {json.dumps(props)});"
         self.web_view.page().runJavaScript(js)
         self.change_surface(self.surface_combo.currentText())
+
+    def create_menu(self):
+        menubar = self.menuBar()
+        menubar.setStyleSheet("background-color: #2d2d2d; color: white;")
+        file_menu = menubar.addMenu("Datei")
+
+        pubchem_action = QAction("PubChem Search...", self)
+        pubchem_action.triggered.connect(self.pubchem_search)
+        file_menu.addAction(pubchem_action)
+
+        import_action = QAction("Import Molecule...", self)
+        import_action.triggered.connect(self.import_molecule)
+        file_menu.addAction(import_action)
+
+        overlay_action = QAction("Overlay Molecule...", self)
+        overlay_action.triggered.connect(self.overlay_molecule)
+        file_menu.addAction(overlay_action)
+
+        export_action = QAction("Export Molecule...", self)
+        export_action.triggered.connect(self.export_molecule)
+        file_menu.addAction(export_action)
+
+    def import_molecule(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Import Molecule", "", 
+            "Supported Formats (*.mol *.sdf *.pdb *.smi);;MDL MOL (*.mol);;SDF (*.sdf);;PDB (*.pdb);;SMILES (*.smi)", 
+            options=options
+        )
+        if file_name:
+            try:
+                mol = None
+                self.sdf_molecules = []
+                self.sdf_index = 0
+                ext = os.path.splitext(file_name)[1].lower()
+                if ext == '.mol':
+                    mol = Chem.MolFromMolFile(file_name, removeHs=False)
+                elif ext == '.sdf':
+                    suppl = Chem.SDMolSupplier(file_name, removeHs=False)
+                    self.sdf_molecules = [m for m in suppl if m is not None]
+                    if self.sdf_molecules:
+                        mol = self.sdf_molecules[0]
+                elif ext == '.pdb':
+                    mol = Chem.MolFromPDBFile(file_name, removeHs=False)
+                elif ext == '.smi':
+                    with open(file_name, 'r') as f:
+                        smi = f.readline().strip().split()[0]
+                    mol = Chem.MolFromSmiles(smi)
+                    if mol:
+                        mol = Chem.AddHs(mol)
+                        AllChem.EmbedMolecule(mol)
+                    
+                if mol is None:
+                    QMessageBox.warning(self, "Import Error", "Could not read molecule from file.")
+                    return
+                
+                if len(self.sdf_molecules) > 1:
+                    self.gallery_widget.setVisible(True)
+                    self.gallery_label.setText(f"Molecule 1 / {len(self.sdf_molecules)}")
+                else:
+                    self.gallery_widget.setVisible(False)
+                    
+                try:
+                    smi_text = Chem.MolToSmiles(Chem.RemoveHs(mol))
+                    self.smiles_input.setText(smi_text)
+                except:
+                    pass
+                self.update_viewer(mol)
+                self.statusBar().showMessage(f"Imported {os.path.basename(file_name)}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to import:\n{str(e)}")
+
+    def prev_molecule(self):
+        if hasattr(self, 'sdf_molecules') and len(self.sdf_molecules) > 1:
+            self.sdf_index = (self.sdf_index - 1) % len(self.sdf_molecules)
+            mol = self.sdf_molecules[self.sdf_index]
+            self.gallery_label.setText(f"Molecule {self.sdf_index + 1} / {len(self.sdf_molecules)}")
+            try:
+                smi_text = Chem.MolToSmiles(Chem.RemoveHs(mol))
+                self.smiles_input.setText(smi_text)
+            except: pass
+            self.update_viewer(mol)
+
+    def next_molecule(self):
+        if hasattr(self, 'sdf_molecules') and len(self.sdf_molecules) > 1:
+            self.sdf_index = (self.sdf_index + 1) % len(self.sdf_molecules)
+            mol = self.sdf_molecules[self.sdf_index]
+            self.gallery_label.setText(f"Molecule {self.sdf_index + 1} / {len(self.sdf_molecules)}")
+            try:
+                smi_text = Chem.MolToSmiles(Chem.RemoveHs(mol))
+                self.smiles_input.setText(smi_text)
+            except: pass
+            self.update_viewer(mol)
+
+    def export_molecule(self):
+        if not hasattr(self, 'current_mol') or self.current_mol is None:
+            QMessageBox.warning(self, "Export Error", "No molecule to export. Please load or optimize a molecule first.")
+            return
+            
+        options = QFileDialog.Options()
+        file_name, filter_used = QFileDialog.getSaveFileName(
+            self, "Export Molecule", "", 
+            "MDL MOL (*.mol);;SDF (*.sdf);;PDB (*.pdb);;SMILES (*.smi)", 
+            options=options
+        )
+        if file_name:
+            try:
+                ext = os.path.splitext(file_name)[1].lower()
+                if not ext:
+                    if "MOL" in filter_used: ext = ".mol"
+                    elif "SDF" in filter_used: ext = ".sdf"
+                    elif "PDB" in filter_used: ext = ".pdb"
+                    elif "SMILES" in filter_used: ext = ".smi"
+                    file_name += ext
+
+                if ext == '.mol':
+                    Chem.MolToMolFile(self.current_mol, file_name)
+                elif ext == '.sdf':
+                    writer = Chem.SDWriter(file_name)
+                    writer.write(self.current_mol)
+                    writer.close()
+                elif ext == '.pdb':
+                    Chem.MolToPDBFile(self.current_mol, file_name)
+                elif ext == '.smi':
+                    with open(file_name, 'w') as f:
+                        f.write(Chem.MolToSmiles(self.current_mol))
+                else:
+                    QMessageBox.warning(self, "Export Error", "Unsupported format for export.")
+                    return
+                    
+                self.statusBar().showMessage(f"Exported to {os.path.basename(file_name)}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to export:\n{str(e)}")
+
+    def pubchem_search(self):
+        import urllib.request
+        import urllib.parse
+        import ssl
+        name, ok = QInputDialog.getText(self, "PubChem Search", "Enter molecule name (e.g. Aspirin):")
+        if ok and name.strip():
+            try:
+                self.statusBar().showMessage(f"Searching PubChem for '{name}'...")
+                url = f"https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/name/{urllib.parse.quote(name.strip())}/property/IsomericSMILES/TXT"
+                req = urllib.request.Request(url, headers={'User-Agent': 'LeMoVi/1.0'})
+                ctx = ssl.create_default_context()
+                ctx.check_hostname = False
+                ctx.verify_mode = ssl.CERT_NONE
+                with urllib.request.urlopen(req, context=ctx) as response:
+                    smiles = response.read().decode('utf-8').strip()
+                if smiles:
+                    smiles = smiles.split('\n')[0].strip()
+                    self.smiles_input.setText(smiles)
+                    self.optimize_structure()
+            except Exception as e:
+                QMessageBox.warning(self, "PubChem Error", f"Could not find molecule '{name}'.\n(Error: {e})")
+                self.statusBar().showMessage("PubChem Search failed.")
+
+    def update_overlay_state(self, row):
+        cb_widget = self.overlay_table.cellWidget(row, 1)
+        if not cb_widget: return
+        cb = cb_widget.findChild(QCheckBox)
+        visible = cb.isChecked() if cb else True
+        
+        combo = self.overlay_table.cellWidget(row, 2)
+        color_text = combo.currentText() if combo else "Default"
+        
+        color_map = {"Default": "", "Cyan": "cyan", "Magenta": "magenta", "Yellow": "yellow", "Green": "green", "Orange": "orange"}
+        color_hex = color_map.get(color_text, "")
+        
+        js = f"updateOverlay({row}, {'true' if visible else 'false'}, '{color_hex}');"
+        self.web_view.page().runJavaScript(js)
+
+    def overlay_molecule(self):
+        options = QFileDialog.Options()
+        file_name, _ = QFileDialog.getOpenFileName(
+            self, "Overlay Molecule", "", 
+            "Supported Formats (*.mol *.sdf *.pdb *.smi);;MDL MOL (*.mol);;SDF (*.sdf);;PDB (*.pdb);;SMILES (*.smi)", 
+            options=options
+        )
+        if file_name:
+            try:
+                mol = None
+                ext = os.path.splitext(file_name)[1].lower()
+                if ext == '.mol':
+                    mol = Chem.MolFromMolFile(file_name, removeHs=False)
+                elif ext == '.sdf':
+                    suppl = Chem.SDMolSupplier(file_name, removeHs=False)
+                    for m in suppl:
+                        if m is not None:
+                            mol = m
+                            break
+                elif ext == '.pdb':
+                    mol = Chem.MolFromPDBFile(file_name, removeHs=False)
+                elif ext == '.smi':
+                    with open(file_name, 'r') as f:
+                        smi = f.readline().strip().split()[0]
+                    mol = Chem.MolFromSmiles(smi)
+                    if mol:
+                        mol = Chem.AddHs(mol)
+                        AllChem.EmbedMolecule(mol)
+                    
+                if mol is None:
+                    QMessageBox.warning(self, "Import Error", "Could not read molecule from file.")
+                    return
+                
+                self.add_overlay(mol, file_name)
+                self.statusBar().showMessage(f"Overlayed {os.path.basename(file_name)}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Failed to overlay:\n{str(e)}")
+
+    def add_overlay(self, mol, file_name):
+        try:
+            from rdkit.Chem import Crippen
+            AllChem.ComputeGasteigerCharges(mol)
+            logp_contribs = Crippen.CrippenContribs(mol)
+        except Exception as e:
+            logp_contribs = [(0,0)] * mol.GetNumAtoms()
+
+        props = []
+        for i, atom in enumerate(mol.GetAtoms()):
+            charge = 0.0
+            logp = 0.0
+            try:
+                charge = float(atom.GetProp("_GasteigerCharge"))
+                if math.isnan(charge) or math.isinf(charge): charge = 0.0
+            except: pass
+            try:
+                logp = logp_contribs[i][0]
+            except: pass
+            props.append({"charge": charge, "logp": logp})
+
+        colors = ["cyan", "magenta", "yellow", "green", "orange"]
+        row = self.overlay_table.rowCount()
+        default_color = colors[row % len(colors)]
+
+        mol_block = Chem.MolToMolBlock(mol)
+        js = f"addMoleculeOverlay({json.dumps(mol_block)}, {json.dumps(props)}, '{default_color}');"
+        self.web_view.page().runJavaScript(js)
+        
+        self.overlay_table.insertRow(row)
+        self.overlay_table.setItem(row, 0, QTableWidgetItem(os.path.basename(file_name)))
+        
+        cb = QCheckBox()
+        cb.setChecked(True)
+        cb.toggled.connect(lambda state, r=row: self.update_overlay_state(r))
+        cb_widget = QWidget()
+        cb_layout = QHBoxLayout(cb_widget)
+        cb_layout.addWidget(cb)
+        cb_layout.setAlignment(Qt.AlignCenter)
+        cb_layout.setContentsMargins(0,0,0,0)
+        self.overlay_table.setCellWidget(row, 1, cb_widget)
+        
+        combo = QComboBox()
+        combo.addItems(["Default", "Cyan", "Magenta", "Yellow", "Green", "Orange"])
+        idx = combo.findText(default_color.capitalize())
+        if idx >= 0: combo.setCurrentIndex(idx)
+        combo.currentTextChanged.connect(lambda text, r=row: self.update_overlay_state(r))
+        self.overlay_table.setCellWidget(row, 2, combo)
+        
+        self.overlay_table.setVisible(True)
+
+        import urllib.request
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

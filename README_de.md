@@ -20,6 +20,10 @@ Dieses Projekt ermöglicht die Eingabe von chemischen Strukturen über den 2D-Ed
   - **Van der Waals (VDW)** und **Solvent Accessible Surface (SAS)**.
   - **Electrostatic Potential (ESP)**: Farbzuordnung basierend auf Gasteiger-Partialladungen (Rot = negativ, Blau = positiv).
   - **Hydrophobicity (LogP)**: Visualisierung von polaren und lipophilen Regionen basierend auf Crippen-LogP-Beiträgen.
+- **Dateiverwaltung & Integrationen**:
+  - **Dateimenü**: Importieren und Exportieren von Molekülen in verschiedenen Formaten (SDF, MOL, PDB, SMILES).
+  - **PubChem Integration**: Suche und importiere Moleküle direkt über ihren Namen aus der PubChem-Datenbank.
+  - **Molekül-Overlay**: Lade mehrere Moleküle in den gleichen Viewer, um ihre Strukturen direkt miteinander zu vergleichen.
 
 ## xTB Integration (Optional)
 Um die xTB-Optimierung nutzen zu können, muss die externe Binary hinterlegt werden:

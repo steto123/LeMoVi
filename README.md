@@ -20,6 +20,10 @@ This project allows the input of chemical structures via the **Ketcher** 2D edit
   - **Van der Waals (VDW)** and **Solvent Accessible Surface (SAS)**.
   - **Electrostatic Potential (ESP)**: Color mapping based on Gasteiger partial charges (Red = negative, Blue = positive).
   - **Hydrophobicity (LogP)**: Visualization of polar and lipophilic regions based on Crippen LogP contributions.
+- **File Management & Integrations**:
+  - **File Menu**: Import and export molecules in various formats (SDF, MOL, PDB, SMILES).
+  - **PubChem Integration**: Search and import molecules directly from the PubChem database by name.
+  - **Molecule Overlay**: Import multiple molecules into the same 3D viewer to compare their structures.
 
 ## xTB Integration (Optional)
 To use xTB optimization, the external binary must be provided:

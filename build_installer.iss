@@ -16,6 +16,8 @@ Source: "app.py"; DestDir: "{app}"; Flags: ignoreversion
 Source: "start.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "create_portable_python.bat"; DestDir: "{app}"; Flags: ignoreversion
 Source: "README.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "README_de.md"; DestDir: "{app}"; Flags: ignoreversion
+Source: "Ideen.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "3Dmol-min.js"; DestDir: "{app}"; Flags: ignoreversion
 Source: "icon.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "portable_python\*"; DestDir: "{app}\portable_python"; Flags: ignoreversion recursesubdirs createallsubdirs

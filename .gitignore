@@ -10,6 +10,9 @@ portable_python/
 xtb/
 Installer/
 Output/
+alt/
+alt_working/
+test_script*.py
 
 # OS specific
 .DS_Store
