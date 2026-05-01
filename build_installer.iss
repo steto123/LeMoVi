@@ -20,6 +20,7 @@ Source: "README_de.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "Ideen.md"; DestDir: "{app}"; Flags: ignoreversion
 Source: "3Dmol-min.js"; DestDir: "{app}"; Flags: ignoreversion
 Source: "icon.png"; DestDir: "{app}"; Flags: ignoreversion
+Source: "lemovi-logo.png"; DestDir: "{app}"; Flags: ignoreversion
 Source: "portable_python\*"; DestDir: "{app}\portable_python"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "ketcher\*"; DestDir: "{app}\ketcher"; Flags: ignoreversion recursesubdirs createallsubdirs
 Source: "xtb\*"; DestDir: "{app}\xtb"; Flags: ignoreversion recursesubdirs createallsubdirs

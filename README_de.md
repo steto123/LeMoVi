@@ -1,5 +1,9 @@
 # LeMoVi - Lehniner Molekül Visualisierer
 
+<p align="center">
+  <img src="lemovi-logo.png" alt="LeMoVi Logo" width="400">
+</p>
+
 Dieses Projekt ermöglicht die Eingabe von chemischen Strukturen über den 2D-Editor **Ketcher**, führt eine Geometrieoptimierung durch (mittels **RDKit** oder **xTB**) und stellt das Ergebnis interaktiv in **3D** (3Dmol.js) dar.
 
 ## Start

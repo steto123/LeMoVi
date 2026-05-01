@@ -5,9 +5,10 @@ import math
 from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                              QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                              QMessageBox, QSplitter, QStackedWidget, QDialog,
-                             QFileDialog, QAction, QMenuBar, QInputDialog)
+                             QFileDialog, QAction, QMenuBar, QInputDialog,
+                             QSplashScreen)
 from PyQt5.QtCore import Qt, QUrl
-from PyQt5.QtGui import QFont, QIcon
+from PyQt5.QtGui import QFont, QIcon, QPixmap
 
 try:
     from PyQt5.QtWebEngineWidgets import QWebEngineView
@@ -843,7 +844,26 @@ class MolViewer3D(QMainWindow):
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setStyle("Fusion")
+    
+    logo_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "lemovi-logo.png")
+    splash = None
+    if os.path.exists(logo_path):
+        pixmap = QPixmap(logo_path)
+        if pixmap.width() > 600:
+            pixmap = pixmap.scaledToWidth(600, Qt.SmoothTransformation)
+        splash = QSplashScreen(pixmap, Qt.WindowStaysOnTopHint)
+        splash.show()
+        app.processEvents()
+        
+        # Small delay to ensure splash is visible for at least a moment
+        import time
+        time.sleep(1)
+        
     window = MolViewer3D()
     window.show()
+    
+    if splash:
+        splash.finish(window)
+        
     sys.exit(app.exec_())
 

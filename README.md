@@ -1,5 +1,9 @@
 # LeMoVi - Lehnin Molecule Visualizer
 
+<p align="center">
+  <img src="lemovi-logo.png" alt="LeMoVi Logo" width="400">
+</p>
+
 This project allows the input of chemical structures via the **Ketcher** 2D editor, performs geometry optimization (using **RDKit** or **xTB**), and displays the result interactively in **3D** (3Dmol.js).
 
 ## Startup
