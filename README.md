@@ -13,17 +13,19 @@ This project allows the input of chemical structures via the **Ketcher** 2D edit
 ## Features
 - **2D Input**: Full Ketcher editor integrated.
 - **Geometry Optimization**: 
-  - Fast molecular mechanics optimization (**MMFF94** via RDKit).
-  - Precise semi-empirical quantum chemical optimization (**GFN2-xTB**) (see Setup below).
+  - Fast molecular mechanics optimization (**MMFF94** via RDKit) with automated retry logic and UFF fallback.
+  - Precise semi-empirical quantum chemical optimization (**GFN2-xTB**) (see Setup below) with robust restart mechanisms.
 - **Visualization**: Interactive 3D view (Fully offline capable). Choice of Sticks, CPK, Wireframe, or Ball & Stick.
-- **Interactive Measurements**: Click atoms in the 3D view to measure them:
+- **Interactive Measurements**: Click atoms in the 3D view to measure them (includes visual connecting lines):
   - 2 Atoms = Bond length / Distance (Å)
   - 3 Atoms = Bond angle (°)
   - 4 Atoms = Torsion / Dihedral angle (°)
-- **Surface Visualization**: Calculation and visualization of molecular surfaces:
-  - **Van der Waals (VDW)** and **Solvent Accessible Surface (SAS)**.
+- **Surface Visualization**: Calculation and visualization of molecular properties:
+  - **Molecular Surfaces**: Van der Waals (VDW), Solvent Accessible Surface (SAS), and Connolly Surface (Molecular Surface).
   - **Electrostatic Potential (ESP)**: Color mapping based on Gasteiger partial charges (Red = negative, Blue = positive).
   - **Hydrophobicity (LogP)**: Visualization of polar and lipophilic regions based on Crippen LogP contributions.
+  - **Polarizability (MR)**: Visual representation of Molar Refractivity.
+  - **Hydrogen Bonding**: Highlighting of H-bond acceptors (Red) and donors (Blue).
 - **File Management & Integrations**:
   - **File Menu**: Import and export molecules in various formats (SDF, MOL, PDB, SMILES).
   - **PubChem Integration**: Search and import molecules directly from the PubChem database by name.

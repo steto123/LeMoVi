@@ -13,17 +13,19 @@ Dieses Projekt ermöglicht die Eingabe von chemischen Strukturen über den 2D-Ed
 ## Funktionen
 - **2D-Input**: Vollständiger Ketcher-Editor integriert.
 - **Geometrie-Optimierung**: 
-  - Schnelle molekülmechanische Optimierung (**MMFF94** via RDKit).
-  - Präzise semiempirische quantenchemische Optimierung (**GFN2-xTB**) (siehe Setup unten).
+  - Schnelle molekülmechanische Optimierung (**MMFF94** via RDKit) inklusive automatischer Retry-Logik und Fallback auf UFF bei fehlenden Parametern.
+  - Präzise semiempirische quantenchemische Optimierung (**GFN2-xTB**) (siehe Setup unten) mit robustem Restart-Mechanismus.
 - **Visualisierung**: Interaktive 3D-Ansicht (Vollständig Offline-fähig). Wahlweise Sticks, CPK, Wireframe oder Ball & Stick.
-- **Interaktive Messungen**: Klicken Sie in der 3D-Ansicht auf Atome, um diese zu vermessen:
+- **Interaktive Messungen**: Klicken Sie in der 3D-Ansicht auf Atome, um diese zu vermessen (inklusive visueller Verbindungslinien):
   - 2 Atome = Bindungslänge / Distanz (Å)
   - 3 Atome = Bindungswinkel (°)
   - 4 Atome = Torsions- / Diederwinkel (°)
-- **Oberflächen-Visualisierung**: Berechnung und Darstellung molekularer Oberflächen:
-  - **Van der Waals (VDW)** und **Solvent Accessible Surface (SAS)**.
-  - **Electrostatic Potential (ESP)**: Farbzuordnung basierend auf Gasteiger-Partialladungen (Rot = negativ, Blau = positiv).
-  - **Hydrophobicity (LogP)**: Visualisierung von polaren und lipophilen Regionen basierend auf Crippen-LogP-Beiträgen.
+- **Oberflächen-Visualisierung**: Berechnung und Darstellung molekularer Eigenschaften:
+  - **Molekulare Oberflächen**: Van der Waals (VDW), Solvent Accessible Surface (SAS) und Connolly-Oberfläche (Molecular Surface).
+  - **Elektrostatisches Potential (ESP)**: Farbzuordnung basierend auf Gasteiger-Partialladungen (Rot = negativ, Blau = positiv).
+  - **Hydrophobizität (LogP)**: Visualisierung von polaren und lipophilen Regionen basierend auf Crippen-LogP-Beiträgen.
+  - **Polarisierbarkeit (MR)**: Visuelle Darstellung der Molaren Refraktivität / Deformierbarkeit.
+  - **Wasserstoffbrücken**: Hervorhebung von H-Brücken-Akzeptoren (Rot) und Donatoren (Blau).
 - **Dateiverwaltung & Integrationen**:
   - **Dateimenü**: Importieren und Exportieren von Molekülen in verschiedenen Formaten (SDF, MOL, PDB, SMILES).
   - **PubChem Integration**: Suche und importiere Moleküle direkt über ihren Namen aus der PubChem-Datenbank.

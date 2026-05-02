@@ -58,6 +58,8 @@ HTML_3DMOL = """
                 if (props[i]) {
                     atoms[i].charge = props[i].charge;
                     atoms[i].logp = props[i].logp;
+                    atoms[i].mr = props[i].mr;
+                    atoms[i].hbond = props[i].hbond;
                 }
             }
         }
@@ -85,6 +87,8 @@ HTML_3DMOL = """
                 if (props[i]) {
                     atoms[i].charge = props[i].charge;
                     atoms[i].logp = props[i].logp;
+                    atoms[i].mr = props[i].mr;
+                    atoms[i].hbond = props[i].hbond;
                 }
             }
         }
@@ -153,15 +157,27 @@ HTML_3DMOL = """
             viewer.addSurface($3Dmol.SurfaceType.VDW, {opacity: 0.85, color: 'white'});
         } else if (surfaceType === "Solvent Accessible") {
             viewer.addSurface($3Dmol.SurfaceType.SAS, {opacity: 0.85, color: 'lightblue'});
+        } else if (surfaceType === "Molecular Surface (Connolly)") {
+            viewer.addSurface($3Dmol.SurfaceType.MS, {opacity: 0.85, color: '#e6e6e6'});
         } else if (surfaceType === "Electrostatic Potential") {
-            viewer.addSurface($3Dmol.SurfaceType.VDW, {
+            viewer.addSurface($3Dmol.SurfaceType.MS, {
                 opacity: 0.85,
                 map: {prop: 'charge', scheme: new $3Dmol.Gradient.RWB(-0.5, 0.5)}
             });
         } else if (surfaceType === "Hydrophobicity (LogP)") {
-            viewer.addSurface($3Dmol.SurfaceType.VDW, {
+            viewer.addSurface($3Dmol.SurfaceType.MS, {
                 opacity: 0.85,
                 map: {prop: 'logp', scheme: new $3Dmol.Gradient.ROYGB(-0.5, 0.5)}
+            });
+        } else if (surfaceType === "Polarizability (MR)") {
+            viewer.addSurface($3Dmol.SurfaceType.MS, {
+                opacity: 0.85,
+                map: {prop: 'mr', scheme: new $3Dmol.Gradient.ROYGB(0, 2.5)}
+            });
+        } else if (surfaceType === "Hydrogen Bonding") {
+            viewer.addSurface($3Dmol.SurfaceType.MS, {
+                opacity: 0.85,
+                map: {prop: 'hbond', scheme: new $3Dmol.Gradient.RWB(-1, 1)}
             });
         }
         viewer.render();
@@ -204,7 +220,7 @@ HTML_3DMOL = """
         if (!atom) return;
         
         // Highlighting des gewählten Atoms (explizite Koordinaten)
-        viewer.addSphere({center: {x: atom.x, y: atom.y, z: atom.z}, radius: 0.35, color: 'yellow', opacity: 0.6});
+        viewer.addSphere({center: {x: atom.x, y: atom.y, z: atom.z}, radius: 0.35, color: 'yellow', opacity: 0.8});
         selectedAtoms.push(atom);
         
         var info = document.getElementById('info');
@@ -215,18 +231,33 @@ HTML_3DMOL = """
         } else if (selectedAtoms.length === 2) {
             var d = distance(selectedAtoms[0], selectedAtoms[1]).toFixed(3);
             addMeasurementLabel(midpoint(selectedAtoms[0], selectedAtoms[1]), d + " Å");
+            drawMeasurementLine(selectedAtoms[0], selectedAtoms[1]);
             info.innerHTML = "Distance: " + d + " Å";
         } else if (selectedAtoms.length === 3) {
             var a = angle(selectedAtoms[0], selectedAtoms[1], selectedAtoms[2]).toFixed(2);
-            addMeasurementLabel({x: selectedAtoms[1].x, y: selectedAtoms[1].y, z: selectedAtoms[1].z}, a + "°");
+            // Label leicht versetzt vom zentralen Atom, damit es nicht direkt im Atom verschwindet
+            addMeasurementLabel({x: selectedAtoms[1].x, y: selectedAtoms[1].y + 0.6, z: selectedAtoms[1].z}, a + "°");
+            drawMeasurementLine(selectedAtoms[1], selectedAtoms[2]);
             info.innerHTML = "Angle: " + a + "°";
         } else if (selectedAtoms.length === 4) {
             var t = torsion(selectedAtoms[0], selectedAtoms[1], selectedAtoms[2], selectedAtoms[3]).toFixed(2);
             addMeasurementLabel(midpoint(selectedAtoms[1], selectedAtoms[2]), t + "°");
+            drawMeasurementLine(selectedAtoms[2], selectedAtoms[3]);
             info.innerHTML = "Torsion: " + t + "°";
             selectedAtoms = []; // Reset nach Torsion
         }
         viewer.render();
+    }
+
+    function drawMeasurementLine(a, b) {
+        // Zeichnet einen gut sichtbaren Zylinder zwischen den Atomen
+        viewer.addCylinder({
+            start: {x: a.x, y: a.y, z: a.z},
+            end: {x: b.x, y: b.y, z: b.z},
+            radius: 0.08,
+            color: '#FF00FF', // Magenta als starke Kontrastfarbe
+            dashed: true
+        });
     }
 
     function addMeasurementLabel(pos, text) {
@@ -235,7 +266,9 @@ HTML_3DMOL = """
             backgroundColor: '#0078D4', 
             fontColor: 'white', 
             fontSize: 14, 
-            backgroundOpacity: 0.9
+            backgroundOpacity: 0.9,
+            borderThickness: 1,
+            borderColor: 'white'
         });
     }
 
@@ -385,7 +418,11 @@ class MolViewer3D(QMainWindow):
         
         ctrl_bar.addWidget(QLabel("Surface:"))
         self.surface_combo = QComboBox()
-        self.surface_combo.addItems(["None", "Van der Waals", "Solvent Accessible", "Electrostatic Potential", "Hydrophobicity (LogP)"])
+        self.surface_combo.addItems([
+            "None", "Van der Waals", "Solvent Accessible", 
+            "Molecular Surface (Connolly)", "Electrostatic Potential", 
+            "Hydrophobicity (LogP)", "Polarizability (MR)", "Hydrogen Bonding"
+        ])
         self.surface_combo.currentTextChanged.connect(self.change_surface)
         ctrl_bar.addWidget(self.surface_combo)
         
@@ -496,10 +533,40 @@ class MolViewer3D(QMainWindow):
                 AllChem.EmbedMolecule(mol, randomSeed=42)
 
             if "MMFF94" in method:
-                self.statusBar().showMessage("Generating 3D coordinates & Optimization (MMFF)...")
-                AllChem.MMFFOptimizeMolecule(mol)
+                self.statusBar().showMessage("Generating 3D coordinates & Optimization (MMFF94)...")
+                
+                status = 1
+                attempts = 0
+                max_attempts = 5
+                
+                # Strategie 1: Mehrere Versuche mit höherem maxIters-Limit
+                while status == 1 and attempts < max_attempts:
+                    status = AllChem.MMFFOptimizeMolecule(mol, maxIters=500)
+                    attempts += 1
+                
+                if status == -1:
+                    # Strategie 2: Fallback auf UFF, falls MMFF94 keine Parameter hat
+                    self.statusBar().showMessage("MMFF94 parameters missing. Trying UFF fallback...")
+                    status = 1
+                    attempts = 0
+                    while status == 1 and attempts < max_attempts:
+                        status = AllChem.UFFOptimizeMolecule(mol, maxIters=500)
+                        attempts += 1
+                    
+                    if status == 0:
+                        msg = f"Optimization (UFF fallback) completed successfully (converged in {attempts} pass(es))."
+                    elif status == 1:
+                        msg = "Optimization (UFF fallback) stopped: Did not converge after maximum iterations."
+                    else:
+                        msg = "Optimization failed: Missing parameters for both MMFF94 and UFF."
+                else:
+                    if status == 0:
+                        msg = f"Optimization (MMFF94) completed successfully (converged in {attempts} pass(es))."
+                    else:
+                        msg = "Optimization (MMFF94) stopped: Did not converge after maximum iterations."
+                
                 self.update_viewer(mol)
-                self.statusBar().showMessage("Optimization (MMFF94) completed.")
+                self.statusBar().showMessage(msg)
             else:
                 self.run_xtb(mol)
             
@@ -510,6 +577,7 @@ class MolViewer3D(QMainWindow):
     def run_xtb(self, mol):
         import subprocess
         import tempfile
+        import shutil
         self.statusBar().showMessage("Running xTB Optimization... (this may take a while)")
         
         # Check for xtb
@@ -521,30 +589,68 @@ class MolViewer3D(QMainWindow):
 
         try:
             with tempfile.TemporaryDirectory() as tmpdir:
-                input_xyz = os.path.join(tmpdir, "input.xyz")
+                current_input = "input.xyz"
+                input_xyz = os.path.join(tmpdir, current_input)
                 Chem.MolToXYZFile(mol, input_xyz)
                 
-                cmd = [xtb_exe, "input.xyz", "--opt"]
-                subprocess.run(cmd, cwd=tmpdir, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                max_attempts = 3
+                attempt = 0
+                success = False
+                
+                while attempt < max_attempts and not success:
+                    attempt += 1
+                    self.statusBar().showMessage(f"Running xTB Optimization... (Attempt {attempt}/{max_attempts})")
                     
-                xtbopt_xyz = os.path.join(tmpdir, "xtbopt.xyz")
-                if not os.path.exists(xtbopt_xyz):
-                    raise ValueError("No optimized structure found.")
+                    cmd = [xtb_exe, current_input, "--opt"]
+                    try:
+                        subprocess.run(cmd, cwd=tmpdir, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
+                        success = True
+                    except subprocess.CalledProcessError as e:
+                        # Bei Fehler prüfen, ob eine Zwischenstruktur (xtbopt.xyz) erzeugt wurde
+                        xtbopt_xyz = os.path.join(tmpdir, "xtbopt.xyz")
+                        if os.path.exists(xtbopt_xyz):
+                            current_input = f"input_retry_{attempt}.xyz"
+                            shutil.copy(xtbopt_xyz, os.path.join(tmpdir, current_input))
+                            # Entfernen der alten xtbopt.xyz, damit beim nächsten Durchlauf keine Verwirrung entsteht
+                            os.remove(xtbopt_xyz)
+                        else:
+                            # Wenn nicht einmal eine Zwischenstruktur generiert wurde, brechen wir direkt ab
+                            break
+                
+                if not success:
+                    self.statusBar().showMessage(f"xTB failed to converge after {attempt} attempt(s).")
+                    # Lade dennoch die bestmögliche gefundene Struktur
+                
+                # Prüfe, ob eine fertige xtbopt.xyz (vom erfolgreichen Lauf) oder unsere kopierte existiert
+                final_xyz = os.path.join(tmpdir, "xtbopt.xyz")
+                if not os.path.exists(final_xyz):
+                    final_xyz = os.path.join(tmpdir, current_input)
+                
+                if not os.path.exists(final_xyz):
+                    raise ValueError("Keine Strukturdatei gefunden.")
                     
-                with open(xtbopt_xyz, "r") as f:
+                with open(final_xyz, "r") as f:
                     lines = f.readlines()
                 
-                conf = mol.GetConformer()
-                for i, line in enumerate(lines[2:]):
-                    parts = line.split()
-                    if len(parts) >= 4:
-                        x, y, z = map(float, parts[1:4])
-                        conf.SetAtomPosition(i, (x, y, z))
-                        
+                # Mindestens 2 Zeilen Header, dann Atome
+                if len(lines) > 2:
+                    conf = mol.GetConformer()
+                    for i, line in enumerate(lines[2:]):
+                        parts = line.split()
+                        if len(parts) >= 4:
+                            x, y, z = map(float, parts[1:4])
+                            conf.SetAtomPosition(i, (x, y, z))
+                            
                 self.update_viewer(mol)
-                self.statusBar().showMessage("Optimization (xTB) completed.")
+                
+                if success:
+                    self.statusBar().showMessage(f"Optimization (xTB) completed successfully (in {attempt} pass(es)).")
+                else:
+                    self.statusBar().showMessage("Optimization (xTB) incomplete: Displaying best intermediate structure.")
+                    QMessageBox.warning(self, "xTB Warning", f"xTB Konvergenz fehlgeschlagen nach {attempt} Versuchen.\nDie angezeigte Struktur ist unvollständig optimiert.")
+                    
         except Exception as e:
-            QMessageBox.critical(self, "xTB Error", f"xTB ist fehlgeschlagen:\\n{str(e)}")
+            QMessageBox.critical(self, "xTB Error", f"xTB ist fehlgeschlagen:\n{str(e)}")
             self.statusBar().showMessage("xTB Error.")
 
     def update_viewer(self, mol):
@@ -559,10 +665,20 @@ class MolViewer3D(QMainWindow):
             print("Warning: Could not compute properties:", e)
             logp_contribs = [(0,0)] * mol.GetNumAtoms()
 
+        donor_smarts = Chem.MolFromSmarts('[$([N,O,S;!H0])]')
+        acceptor_smarts = Chem.MolFromSmarts('[$([O,N;!v4])]')
+        donors = set(sum(mol.GetSubstructMatches(donor_smarts), ())) if donor_smarts else set()
+        acceptors = set(sum(mol.GetSubstructMatches(acceptor_smarts), ())) if acceptor_smarts else set()
+
         props = []
         for i, atom in enumerate(mol.GetAtoms()):
             charge = 0.0
             logp = 0.0
+            mr = 0.0
+            hbond = 0
+            if i in donors: hbond = 1
+            elif i in acceptors: hbond = -1
+
             try:
                 charge = float(atom.GetProp("_GasteigerCharge"))
                 if math.isnan(charge) or math.isinf(charge): charge = 0.0
@@ -570,9 +686,10 @@ class MolViewer3D(QMainWindow):
                 pass
             try:
                 logp = logp_contribs[i][0]
+                mr = logp_contribs[i][1]
             except:
                 pass
-            props.append({"charge": charge, "logp": logp})
+            props.append({"charge": charge, "logp": logp, "mr": mr, "hbond": hbond})
 
         mol_block = Chem.MolToMolBlock(mol)
         js = f"loadMolecule({json.dumps(mol_block)}, {json.dumps(props)});"
@@ -796,18 +913,29 @@ class MolViewer3D(QMainWindow):
         except Exception as e:
             logp_contribs = [(0,0)] * mol.GetNumAtoms()
 
+        donor_smarts = Chem.MolFromSmarts('[$([N,O,S;!H0])]')
+        acceptor_smarts = Chem.MolFromSmarts('[$([O,N;!v4])]')
+        donors = set(sum(mol.GetSubstructMatches(donor_smarts), ())) if donor_smarts else set()
+        acceptors = set(sum(mol.GetSubstructMatches(acceptor_smarts), ())) if acceptor_smarts else set()
+
         props = []
         for i, atom in enumerate(mol.GetAtoms()):
             charge = 0.0
             logp = 0.0
+            mr = 0.0
+            hbond = 0
+            if i in donors: hbond = 1
+            elif i in acceptors: hbond = -1
+
             try:
                 charge = float(atom.GetProp("_GasteigerCharge"))
                 if math.isnan(charge) or math.isinf(charge): charge = 0.0
             except: pass
             try:
                 logp = logp_contribs[i][0]
+                mr = logp_contribs[i][1]
             except: pass
-            props.append({"charge": charge, "logp": logp})
+            props.append({"charge": charge, "logp": logp, "mr": mr, "hbond": hbond})
 
         colors = ["cyan", "magenta", "yellow", "green", "orange"]
         row = self.overlay_table.rowCount()
