@@ -19,6 +19,9 @@ except ImportError:
 
 from rdkit import Chem
 from rdkit.Chem import AllChem
+from orca_ui import OrcaSetupDialog, OrcaJobManagerWidget
+
+__version__ = "22.07.2026"
 
 # Fortgeschrittener 3Dmol.js HTML Wrapper mit Messfunktionen
 HTML_3DMOL = """
@@ -30,16 +33,29 @@ HTML_3DMOL = """
     body { margin: 0; padding: 0; overflow: hidden; background-color: #1e1e1e; font-family: 'Segoe UI', sans-serif;}
     #container { width: 100vw; height: 100vh; position: relative;}
     #info { position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.7); padding: 8px 12px; border-radius: 5px; pointer-events: none; font-size: 13px; border: 1px solid #444;}
+    #method-badge { position: absolute; top: 10px; right: 10px; color: #4fc3f7; background: rgba(0,0,0,0.75); padding: 6px 12px; border-radius: 5px; pointer-events: none; font-size: 13px; border: 1px solid #2b5b84; font-weight: bold; display: none;}
   </style>
 </head>
 <body>
   <div id="container"></div>
   <div id="info">Click atoms for measurements (2: Distance, 3: Angle, 4: Torsion)</div>
+  <div id="method-badge"></div>
   <script>
     var viewer = $3Dmol.createViewer("container", {backgroundColor: "#1e1e1e"});
     var selectedAtoms = [];
     var currentModel = null;
     var showLabels = false;
+
+    function setMethodBadge(text) {
+        var el = document.getElementById('method-badge');
+        if (text && text.trim() !== "") {
+            el.innerHTML = text;
+            el.style.display = "block";
+        } else {
+            el.style.display = "none";
+        }
+    }
+
 
     var currentSurface = null;
     var currentStyleType = "stick";
@@ -355,7 +371,7 @@ class KetcherDialog(QDialog):
 class MolViewer3D(QMainWindow):
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("LeMoVi - Lehnin Molecule Visualizer")
+        self.setWindowTitle(f"LeMoVi - Lehnin Molecule Visualizer (v{__version__})")
         self.resize(1250, 850)
         self.setWindowIcon(QIcon(os.path.join(os.path.dirname(__file__), "icon.png")))
         self.setup_ui()
@@ -476,11 +492,19 @@ class MolViewer3D(QMainWindow):
         main_layout.addWidget(self.gallery_widget)
         main_layout.addWidget(self.overlay_table)
 
-        # Main View (3D)
+        # Main View (3D) & ORCA Job Manager (Splitter-based)
+        self.splitter = QSplitter(Qt.Vertical)
+        
         self.web_view = QWebEngineView()
         base_dir = os.path.dirname(os.path.abspath(__file__))
         self.web_view.setHtml(HTML_3DMOL, QUrl.fromLocalFile(base_dir + "/"))
-        main_layout.addWidget(self.web_view)
+        self.splitter.addWidget(self.web_view)
+        
+        self.orca_job_widget = OrcaJobManagerWidget(base_dir, self)
+        self.orca_job_widget.setVisible(False)
+        self.splitter.addWidget(self.orca_job_widget)
+        
+        main_layout.addWidget(self.splitter)
         
         self.statusBar().showMessage("Ready")
         self.statusBar().setStyleSheet("color: #aaa; background-color: #111;")
@@ -516,6 +540,12 @@ class MolViewer3D(QMainWindow):
         js = "clearMeasurements();"
         self.web_view.page().runJavaScript(js)
 
+    def set_method_badge(self, method_text):
+        """Updates top-right 3D viewer method/basis badge."""
+        if hasattr(self, 'web_view') and self.web_view:
+            js = f"setMethodBadge({json.dumps(method_text)});"
+            self.web_view.page().runJavaScript(js)
+
     def optimize_structure(self):
         smiles = self.smiles_input.text().strip()
         if not smiles: return
@@ -538,17 +568,19 @@ class MolViewer3D(QMainWindow):
                 status = 1
                 attempts = 0
                 max_attempts = 5
+                used_method = "MMFF94"
                 
-                # Strategie 1: Mehrere Versuche mit höherem maxIters-Limit
+                # Strategy 1: Multiple passes with maxIters
                 while status == 1 and attempts < max_attempts:
                     status = AllChem.MMFFOptimizeMolecule(mol, maxIters=500)
                     attempts += 1
                 
                 if status == -1:
-                    # Strategie 2: Fallback auf UFF, falls MMFF94 keine Parameter hat
+                    # Strategy 2: UFF fallback
                     self.statusBar().showMessage("MMFF94 parameters missing. Trying UFF fallback...")
                     status = 1
                     attempts = 0
+                    used_method = "UFF"
                     while status == 1 and attempts < max_attempts:
                         status = AllChem.UFFOptimizeMolecule(mol, maxIters=500)
                         attempts += 1
@@ -566,13 +598,14 @@ class MolViewer3D(QMainWindow):
                         msg = "Optimization (MMFF94) stopped: Did not converge after maximum iterations."
                 
                 self.update_viewer(mol)
+                self.set_method_badge(f"Method: {used_method} (Geom Opt)")
                 self.statusBar().showMessage(msg)
             else:
                 self.run_xtb(mol)
             
         except Exception as e:
             QMessageBox.warning(self, "Error", str(e))
-            self.statusBar().showMessage("Error bei der Optimierung.")
+            self.statusBar().showMessage("Error during optimization.")
 
     def run_xtb(self, mol):
         import subprocess
@@ -583,7 +616,7 @@ class MolViewer3D(QMainWindow):
         # Check for xtb
         xtb_exe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "xtb", "xtb.exe")
         if not os.path.exists(xtb_exe):
-            QMessageBox.critical(self, "xTB not found", f"Bitte laden Sie xTB herunter und entpacken Sie es nach:\\n{xtb_exe}")
+            QMessageBox.critical(self, "xTB not found", f"Please download xTB and extract it to:\n{xtb_exe}")
             self.statusBar().showMessage("xTB Optimization aborted.")
             return
 
@@ -606,33 +639,27 @@ class MolViewer3D(QMainWindow):
                         subprocess.run(cmd, cwd=tmpdir, check=True, capture_output=True, text=True, creationflags=subprocess.CREATE_NO_WINDOW)
                         success = True
                     except subprocess.CalledProcessError as e:
-                        # Bei Fehler prüfen, ob eine Zwischenstruktur (xtbopt.xyz) erzeugt wurde
                         xtbopt_xyz = os.path.join(tmpdir, "xtbopt.xyz")
                         if os.path.exists(xtbopt_xyz):
                             current_input = f"input_retry_{attempt}.xyz"
                             shutil.copy(xtbopt_xyz, os.path.join(tmpdir, current_input))
-                            # Entfernen der alten xtbopt.xyz, damit beim nächsten Durchlauf keine Verwirrung entsteht
                             os.remove(xtbopt_xyz)
                         else:
-                            # Wenn nicht einmal eine Zwischenstruktur generiert wurde, brechen wir direkt ab
                             break
                 
                 if not success:
                     self.statusBar().showMessage(f"xTB failed to converge after {attempt} attempt(s).")
-                    # Lade dennoch die bestmögliche gefundene Struktur
                 
-                # Prüfe, ob eine fertige xtbopt.xyz (vom erfolgreichen Lauf) oder unsere kopierte existiert
                 final_xyz = os.path.join(tmpdir, "xtbopt.xyz")
                 if not os.path.exists(final_xyz):
                     final_xyz = os.path.join(tmpdir, current_input)
                 
                 if not os.path.exists(final_xyz):
-                    raise ValueError("Keine Strukturdatei gefunden.")
+                    raise ValueError("No structure file found.")
                     
                 with open(final_xyz, "r") as f:
                     lines = f.readlines()
                 
-                # Mindestens 2 Zeilen Header, dann Atome
                 if len(lines) > 2:
                     conf = mol.GetConformer()
                     for i, line in enumerate(lines[2:]):
@@ -642,10 +669,14 @@ class MolViewer3D(QMainWindow):
                             conf.SetAtomPosition(i, (x, y, z))
                             
                 self.update_viewer(mol)
+                self.set_method_badge("Method: GFN2-xTB (Geom Opt)")
                 
                 if success:
                     self.statusBar().showMessage(f"Optimization (xTB) completed successfully (in {attempt} pass(es)).")
                 else:
+                    self.statusBar().showMessage("Optimization (xTB) incomplete: Displaying best intermediate structure.")
+                    QMessageBox.warning(self, "xTB Warning", f"xTB convergence failed after {attempt} attempts.\nThe displayed structure is incompletely optimized.")
+
                     self.statusBar().showMessage("Optimization (xTB) incomplete: Displaying best intermediate structure.")
                     QMessageBox.warning(self, "xTB Warning", f"xTB Konvergenz fehlgeschlagen nach {attempt} Versuchen.\nDie angezeigte Struktur ist unvollständig optimiert.")
                     
@@ -699,7 +730,7 @@ class MolViewer3D(QMainWindow):
     def create_menu(self):
         menubar = self.menuBar()
         menubar.setStyleSheet("background-color: #2d2d2d; color: white;")
-        file_menu = menubar.addMenu("Datei")
+        file_menu = menubar.addMenu("File")
 
         pubchem_action = QAction("PubChem Search...", self)
         pubchem_action.triggered.connect(self.pubchem_search)
@@ -716,6 +747,39 @@ class MolViewer3D(QMainWindow):
         export_action = QAction("Export Molecule...", self)
         export_action.triggered.connect(self.export_molecule)
         file_menu.addAction(export_action)
+
+        orca_menu = menubar.addMenu("ORCA 6")
+
+        setup_action = QAction("Setup Calculation...", self)
+        setup_action.triggered.connect(self.open_orca_setup)
+        orca_menu.addAction(setup_action)
+
+        queue_action = QAction("Toggle Job Manager", self)
+        queue_action.triggered.connect(self.toggle_orca_queue)
+        orca_menu.addAction(queue_action)
+
+    def open_orca_setup(self):
+        if not hasattr(self, 'current_mol') or self.current_mol is None:
+            QMessageBox.warning(self, "Warning", "No molecule loaded. Please load or optimize a structure first.")
+            return
+
+        xyz_block = ""
+        try:
+            conf = self.current_mol.GetConformer()
+            for atom in self.current_mol.GetAtoms():
+                pos = conf.GetAtomPosition(atom.GetIdx())
+                xyz_block += f"{atom.GetSymbol()} {pos.x:.6f} {pos.y:.6f} {pos.z:.6f}\n"
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to get coordinates from molecule:\n{str(e)}")
+            return
+
+        dialog = OrcaSetupDialog(self, xyz_block, self.orca_job_widget.job_manager)
+        if dialog.exec_() == QDialog.Accepted:
+            self.orca_job_widget.setVisible(True)
+            self.orca_job_widget.refresh_queue()
+
+    def toggle_orca_queue(self):
+        self.orca_job_widget.setVisible(not self.orca_job_widget.isVisible())
 
     def import_molecule(self):
         options = QFileDialog.Options()
@@ -988,7 +1052,7 @@ if __name__ == "__main__":
         time.sleep(1)
         
     window = MolViewer3D()
-    window.show()
+    window.showMaximized()
     
     if splash:
         splash.finish(window)

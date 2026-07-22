@@ -10,3 +10,18 @@
 8. ~~**Galerie-/Batch-Modus für SDF-Dateien**~~ *(Erledigt)*: SDF-Dateien enthalten oft hunderte Moleküle. Anstatt nur das erste zu laden, könnte man Pfeiltasten ("Nächstes/Vorheriges") einblenden, um durch eine ganze Bibliothek von Molekülen zu blättern.
 9. ~~**Molekül-Overlay (Vergleichs-Import)**~~ *(Erledigt)*: Eine Funktion "Molekül hinzufügen...", die das aktuelle Molekül nicht ersetzt, sondern das neue Molekül *zusätzlich* in den Viewer lädt. So könnte man zwei Strukturen übereinanderlegen und visuell vergleichen.
 10. **Metadaten- und Eigenschaften-Export**: Beim Exportieren als CSV oder erweiterte SDF-Datei könnten nicht nur die Koordinaten, sondern auch die in LeMoVi berechneten Eigenschaften (Gasteiger-Ladungen, LogP-Werte oder berechnete Abstände) als Metadaten mit in die Datei geschrieben werden.
+
+# Orca- Interface
+
+1.  ~~Im Reiter Thermodynamics die Informationen über verwendete Basissätze und Methode mit aufnehmen~~ 
+2.  ~~Bei Geometrieoptimierungen den verwendeten Basissätze und Methode oben rechts einblenden~~
+3. ~~Bei Kombinationsrechnungen ( beispielsweise opt + NMR) unterschiedliche Methoden für die einzelnen Schritte anbieten. Eventuell per Radiobutton oder wie bisher als Liste die Art der Rechnung und dann die Eingabemaske dynamisch anpassen. Als Voreinstellung dann überall die gleich Methode verwenden. Nutzer ändert bei Bedarf~~
+4. ~~Darstellung eventuell berechneter Spektren dynamisch als extra Reiter im Ergebnisfenster anbieten~~
+5. ~~Lösungsmittelmodell explizit mit aufnehmen (auch für NMR Berechnungen)~~
+
+
+
+# Generell
+
+1.  Alles in englisch übersetzen und Versionsnummern einfügen
+2.  spalsh screen (Nild überprüfen)

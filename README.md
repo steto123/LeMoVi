@@ -30,6 +30,12 @@ This project allows the input of chemical structures via the **Ketcher** 2D edit
   - **File Menu**: Import and export molecules in various formats (SDF, MOL, PDB, SMILES).
   - **PubChem Integration**: Search and import molecules directly from the PubChem database by name.
   - **Molecule Overlay**: Import multiple molecules into the same 3D viewer to compare their structures.
+  - **Setup Dialog**: Intuitive dialog to configure quantum chemical calculations (Tasks: `Opt`, `Freq`, `NMR`, `Single Point` and combinations; Methods: DFT functionals like `B3LYP`, `PBE0`, `wB97X-D4`, `r2SCAN-3c`, HF/semi-empirical, or post-HF like `MP2` and `DLPNO-CCSD(T)`).
+  - **Comprehensive Basis Sets**: Easily select from Ahlrichs `def2`, minimally augmented `ma-def2`, Jensen's `pcseg` (for DFT properties), Dunning's correlation consistent `cc-pV*Z` (for wavefunction methods), and legacy Pople `6-31G` sets. See [ORCA_Basis_Sets_en.md](file:///f:/projekte26/lemovi-for-windows/LeMoVi/ORCA_Basis_Sets_en.md) for detailed guidelines.
+  - **Solvent Models & DRACO**: Select implicit solvent models (`CPCM`, `SMD`, or `PCM`) and choose from 12 common solvents (e.g. Chloroform, DMSO, Acetone). Solvents can be configured **separately** for Geometry Optimization and NMR steps. Supports enabling `DRACO` radii for ORCA 6+.
+  - **Tantillo/CHESHIRE Scaling**: Apply scaling factors ($ \delta = \text{intercept} + \text{slope} \times \sigma $) for GIAO NMR calculations directly from a database of 64 pre-defined CHESHIRE literature scaling entries. The system automatically prioritizes the best match using the NMR method, basis, and solvent from the job metadata. Includes an interactive scaling database viewer and editor.
+  - **Dispersion Corrections**: Native support for Grimme's `D4` and `D3BJ` dispersion corrections.
+  - **Job Manager**: Background job queue manager. Monitor execution states, view live execution log files (`orca_output.out`), terminate calculations, and load optimized geometries directly back into the 3D visualizer.
 
 ## xTB Integration (Optional)
 To use xTB optimization, the external binary must be provided:
@@ -38,6 +44,12 @@ To use xTB optimization, the external binary must be provided:
 3. Create a new subfolder named `xtb` in the `LeMoVi` directory.
 4. Copy the executable file `xtb.exe` into this folder. The path must be: `LeMoVi\xtb\xtb.exe`
 5. The program will now automatically detect xTB when selected in the dropdown menu.
+
+## ORCA Integration Setup (Optional)
+To run ORCA calculations, you must have ORCA installed on your system:
+1. Download ORCA (preferably version 6.x) from the official [Orca Forum / Portal](https://orcaforum.kofo.mpg.de/).
+2. Install ORCA on your system and add the directory containing the `orca.exe` binary to your system's `PATH` environment variable.
+3. LeMoVi will call `orca` directly. Make sure the executable is reachable in the command line (you can verify this by typing `orca` in a command prompt).
 
 ## Requirements
 The program is designed as a portable application and requires an installed Python environment in the `portable_python` subfolder (created by the script).

@@ -1,6 +1,6 @@
 [Setup]
 AppName=LeMoVi (Lehnin Molecule Visualizer)
-AppVersion=1.0
+AppVersion=22.07.2026
 AppPublisher=LeMoVi Team
 DefaultDirName={autopf}\LeMoVi
 DefaultGroupName=LeMoVi

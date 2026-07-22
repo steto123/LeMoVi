@@ -1,0 +1,281 @@
+[
+  {
+    "geom_method": "-",
+    "geom_basis": "-",
+    "method": "Experiment (Gas)",
+    "basis": "-",
+    "h1_shielding": 30.783,
+    "c13_shielding": 188.0,
+    "source": "[3, 4]"
+  },
+  {
+    "geom_method": "-",
+    "geom_basis": "-",
+    "method": "Experiment (Flüssigkeit/rein)",
+    "basis": "-",
+    "h1_shielding": 32.873,
+    "c13_shielding": null,
+    "source": "[3]"
+  },
+  {
+    "geom_method": "-",
+    "geom_basis": "-",
+    "method": "Experiment (Flüssigkeit/zylindrisch)",
+    "basis": "-",
+    "h1_shielding": 32.775,
+    "c13_shielding": null,
+    "source": "[3]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "STO-3G",
+    "method": "HF",
+    "basis": "STO-3G",
+    "h1_shielding": 33.7573,
+    "c13_shielding": 249.4485,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "STO-6G",
+    "method": "HF",
+    "basis": "STO-6G",
+    "h1_shielding": 34.185,
+    "c13_shielding": 251.8526,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "3-21G",
+    "method": "HF",
+    "basis": "3-21G",
+    "h1_shielding": 33.8334,
+    "c13_shielding": 214.6567,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31G",
+    "method": "HF",
+    "basis": "6-31G",
+    "h1_shielding": 33.6781,
+    "c13_shielding": 208.236,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31G*",
+    "method": "HF",
+    "basis": "6-31G*",
+    "h1_shielding": 32.9035,
+    "c13_shielding": 201.7285,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31+G*",
+    "method": "HF",
+    "basis": "6-31+G*",
+    "h1_shielding": 32.819,
+    "c13_shielding": 201.8459,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31++G*",
+    "method": "HF",
+    "basis": "6-31++G*",
+    "h1_shielding": 32.8185,
+    "c13_shielding": 202.1032,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31G**",
+    "method": "HF",
+    "basis": "6-31G**",
+    "h1_shielding": 32.3358,
+    "c13_shielding": 203.1555,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31+G**",
+    "method": "HF",
+    "basis": "6-31+G**",
+    "h1_shielding": 32.2849,
+    "c13_shielding": 203.1713,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31++G**",
+    "method": "HF",
+    "basis": "6-31++G**",
+    "h1_shielding": 32.2918,
+    "c13_shielding": 203.5056,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311G",
+    "method": "HF",
+    "basis": "6-311G",
+    "h1_shielding": 33.6399,
+    "c13_shielding": 203.5439,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311G*",
+    "method": "HF",
+    "basis": "6-311G*",
+    "h1_shielding": 32.8505,
+    "c13_shielding": 195.989,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311+G*",
+    "method": "HF",
+    "basis": "6-311+G*",
+    "h1_shielding": 32.7994,
+    "c13_shielding": 195.9349,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311++G*",
+    "method": "HF",
+    "basis": "6-311++G*",
+    "h1_shielding": 32.7887,
+    "c13_shielding": 196.15,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311G**",
+    "method": "HF",
+    "basis": "6-311G**",
+    "h1_shielding": 32.4875,
+    "c13_shielding": 196.2165,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311+G**",
+    "method": "HF",
+    "basis": "6-311+G**",
+    "h1_shielding": 32.4645,
+    "c13_shielding": 195.9187,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311++G**",
+    "method": "HF",
+    "basis": "6-311++G**",
+    "h1_shielding": 32.4549,
+    "c13_shielding": 196.1819,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "k.A.",
+    "geom_basis": "k.A.",
+    "method": "HF",
+    "basis": "def2-TZVPP",
+    "h1_shielding": null,
+    "c13_shielding": 194.1,
+    "source": "[4]"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31G*",
+    "method": "B3LYP",
+    "basis": "6-31G*",
+    "h1_shielding": 32.5976,
+    "c13_shielding": 199.9853,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31G(d)",
+    "method": "B3LYP",
+    "basis": "6-31G(d)",
+    "h1_shielding": 32.3,
+    "c13_shielding": 190.4,
+    "source": "[3, 4]"
+  },
+  {
+    "geom_method": "B3LYP-D3BJ (CPCM)",
+    "geom_basis": "def2-TZVP",
+    "method": "B3LYP",
+    "basis": "def2-TZVP",
+    "h1_shielding": 31.93,
+    "c13_shielding": null,
+    "source": "[3]"
+  },
+  {
+    "geom_method": "k.A.",
+    "geom_basis": "k.A.",
+    "method": "B3LYP",
+    "basis": "def2-TZVPP",
+    "h1_shielding": null,
+    "c13_shielding": 184.3,
+    "source": "[4]"
+  },
+  {
+    "geom_method": "B3LYP-D3BJ (CPCM)",
+    "geom_basis": "def2-TZVP",
+    "method": "MP2",
+    "basis": "def2-TZVP",
+    "h1_shielding": 31.81,
+    "c13_shielding": null,
+    "source": "[3]"
+  },
+  {
+    "geom_method": "k.A.",
+    "geom_basis": "k.A.",
+    "method": "BP86",
+    "basis": "def2-TZVPP",
+    "h1_shielding": null,
+    "c13_shielding": 184.8,
+    "source": "[4]"
+  },
+  {
+    "geom_method": "B3LYP-D3 (CPCM)",
+    "geom_basis": "def2-TZVP",
+    "method": "B97-2",
+    "basis": "pcS-3",
+    "h1_shielding": null,
+    "c13_shielding": 184.1,
+    "source": "[4]"
+  },
+  {
+    "geom_method": "CCSD(T)",
+    "geom_basis": "cc-pVQZ",
+    "method": "DSD-PBEP86",
+    "basis": "pcSseg-3",
+    "h1_shielding": null,
+    "c13_shielding": 185.9,
+    "source": "[4]"
+  },
+  {
+    "geom_method": "B3LYP-D3 (PCM)",
+    "geom_basis": "6-311G(d p)",
+    "method": "WP04",
+    "basis": "6-311++G(2d p)",
+    "h1_shielding": 31.6,
+    "c13_shielding": null,
+    "source": "[3]"
+  },
+  {
+    "geom_method": "k.A.",
+    "geom_basis": "k.A.",
+    "method": "ORCA-Beispielwerte (Referenz)",
+    "basis": "-",
+    "h1_shielding": 31.77,
+    "c13_shielding": 188.1,
+    "source": "[1]"
+  }
+]

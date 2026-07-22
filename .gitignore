@@ -17,3 +17,6 @@ test_script*.py
 # OS specific
 .DS_Store
 Thumbs.db
+
+# ORCA jobs
+orca_jobs/
