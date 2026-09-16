@@ -106,14 +106,21 @@ Berechnete isotrope Abschirmungen ($\sigma$) werden anhand standardisierter oder
 $$\delta = \sigma_{\text{ref}} - \sigma_{\text{berechnet}}$$
 
 LeMoVi enthält eine integrierte, vollständig erweiterbare **TMS-Referenzdatenbank** (`tms_references.json`) mit über 30 Quantenchemie- und Experiment-Referenzwerten für $^1\text{H}$ und $^{13}\text{C}$ (z. B. HF, B3LYP, MP2, BP86, WP04 sowie experimentelle Gas- und Flüssigkeitswerte).
-* **Automatische Empfehlung:** Nach Abschluss eines NMR-Jobs schlägt das System automatisch den optimal passenden TMS-Referenzwert für das gewählte Funktional und den Basissatz vor.
-* **Benutzerdefinierte Anpassung:** Über den Button **TMS-Referenzen...** können Anwender beliebige Referenzwerte einsehen, filtern, bearbeiten, neue Werte hinzufügen oder Einträge löschen.
-* **Tantillo-Skalierung (`tantillo_scaling.json`):** Neben der TMS-Standardmethode unterstützt LeMoVi die lineare Skalierung nach Tantillo et al. ($\delta = (\sigma_{\text{calc}} - \text{Intercept}) / \text{Slope}$). Über den Button **Tantillo-Skalierungen...** können Nutzer alle Steigungen und Achsenabschnitte für verschiedene Funktional/Basissatz-Kombinationen ansehen, bearbeiten und neue hinzufügen.
-* **3D-Darstellung:** Die berechneten Verschiebungen können als schwebende Labels direkt im interaktiven 3D-Viewer auf den jeweiligen Atomen angezeigt werden.
+* **Automatische Empfehlung:** Nach Abschluss eines NMR-Jobs schlägt das System automatisch den optimal passenden TMS-Referenzwert für das gewählte Funktional, den Basissatz sowie unter Berücksichtigung von Lösungsmitteln und Solvensmodellen (analog zu Tantillo-Skalierungen) vor.
+* **Benutzerdefinierte Anpassung:** Über den Button **TMS-Referenzen...** können Anwender beliebige Referenzwerte einsehen, filtern, bearbeiten, neue Werte hinzufügen oder Einträge löschen. Die Datenbank unterstützt dabei die Zuordnung von Geometrie- und NMR-Lösungsmitteln sowie Solvensmodellen.
+* **Tantillo-Skalierung (`tantillo_scaling.json`):** Neben der TMS-Standardmethode unterstützt LeMoVi die lineare Skalierung nach Tantillo et al. ($\delta = (\sigma_{\text{calc}} - \text{Intercept}) / \text{Slope}$). Über den Button **Tantillo-Skalierungen...** können Anwender alle Steigungen und Achsenabschnitte für verschiedene Funktional/Basissatz-Kombinationen ansehen, bearbeiten und neue hinzufügen.
+* **Symmetrie-Mittelung (Symmetry Averaging):** Das System ermittelt automatisch über RDKit-Topologie- und Fragment-Geometrieanalysen die Symmetrieränge aller Atome. In den NMR-Ergebnistabellen wird eine zusätzliche Spalte mit symmetriegemittelten chemischen Verschiebungen ausgegeben.
+* **3D-Darstellung & Spektrum:** Die chemischen Verschiebungen können wahlweise als Standardwerte oder als symmetriegemittelte Werte direkt im interaktiven 3D-Viewer als schwebende Labels angezeigt oder im NMR-Spektrums-Tab dargestellt werden.
 
+### D. Spezialisierte NMR-Dichtefunktionale (WC04, WP04, BMK, mPW1PW91)
+Für hochpräzise NMR-Vorhersagen unterstützt LeMoVi die in der Literatur etablierten Spezialfunktionale:
+* **`WC04` (Wiitala-Cramer 2004):** Hybrid-GGA-Funktional, das speziell zur Minimierung der mittleren Fehler bei $^{13}\text{C}$-chemischen Verschiebungen parametrisiert wurde. Es kombiniert modifizierten Becke-Austausch mit modifizierter Korrelation. In LeMoVi automatisch über LibXC (`functional hyb_gga_xc_wc04`) in ORCA 6 integriert.
+* **`WP04` (Wiitala-Peverati 2004/2007):** Schwesterfunktional zu WC04, speziell optimiert für $^1\text{H}$-chemische Verschiebungen. In LeMoVi automatisch über LibXC (`functional hyb_gga_xc_wp04`) integriert.
+* **`BMK` (Boese-Martin for Kinetics):** Meta-GGA-Hybridfunktional mit 42% HF-Austausch. Neben Kinetikbarrieren hervorragend für CHESHIRE/Tantillo lineare Skalierungsmethoden bei NMR geeignet. Automatisch über LibXC (`exchange hyb_mgga_x_bmk`, `correlation gga_c_bmk`) integriert.
+* **`mPW1PW91` (modifiziertes PW91):** Einer der am weitesten verbreiteten Benchmarking-Standards für NMR-Berechnungen (u. a. Tantillo- und Sarotti-Skalierungen). In ORCA nativ über das Keyword `mPW1PW` angesprochen.
+* **Automatisierte ORCA 6 Syntax:** LeMoVi erkennt automatisch, ob ein Funktional als einfaches Keyword oder via `%method ... end` LibXC-Block definiert werden muss, und formatiert sowohl einstufige als auch zweistufige (`%Compound` Opt + NMR) Rechnungen fehlerfrei. Passende TMS-Referenzwerte und Skalierungsfaktoren sind direkt voreingestellt.
 
-
-### D. IR-Spektren & Schwingungs-Animationen
+### E. IR-Spektren & Schwingungs-Animationen
 Unter **Vibrational Frequencies** werden alle berechneten Moden mit Frequenzen und IR-Intensitäten gelistet:
 * Durch Auswählen einer Zeile und Klicken auf **Animate Selected Mode** wird die Schwingung des Moleküls basierend auf den echten quantenchemischen Verschiebungsvektoren im 3D-Viewer animiert.
 * Ein erneuter Klick stoppt die Animation und stellt die Ausgangsgeometrie wieder her.
