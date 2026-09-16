@@ -5,6 +5,45 @@ import re
 import subprocess
 from datetime import datetime
 
+try:
+    from opi.output.core import Output as OpiOutput
+    OPI_AVAILABLE = True
+except ImportError:
+    OPI_AVAILABLE = False
+
+def format_orca_method(method_name):
+    """Translates a user-facing DFT/method name to the appropriate ORCA keyword or %method block.
+    
+    Returns:
+        tuple: (simple_kw, method_block_str)
+        - simple_kw (str or None): Keyword to place on the '! ...' simple input line, or None.
+        - method_block_str (str): Multi-line string for %method block (with trailing newline), or empty string.
+    """
+    if not method_name:
+        return ("", "")
+    
+    m_upper = str(method_name).strip().upper()
+    
+    if m_upper in ("MPW1PW91", "MPW1PW"):
+        return ("mPW1PW", "")
+    elif m_upper == "WC04":
+        return (None, "%method\n  method dft\n  functional hyb_gga_xc_wc04\nend\n")
+    elif m_upper == "WP04":
+        return (None, "%method\n  method dft\n  functional hyb_gga_xc_wp04\nend\n")
+    elif m_upper == "BMK":
+        return (None, "%method\n  method dft\n  exchange hyb_mgga_x_bmk\n  correlation gga_c_bmk\nend\n")
+    else:
+        return (str(method_name).strip(), "")
+
+def normalize_method_alias(method_str):
+    """Normalizes method names for robust alias matching (e.g. mPW1PW and mPW1PW91)."""
+    if not method_str:
+        return ""
+    m = str(method_str).strip().upper()
+    if m in ("MPW1PW", "MPW1PW91"):
+        return "MPW1PW91"
+    return m
+
 # Standard reference isotropic shieldings (approximate values for TMS at DFT/def2-TZVP level)
 DEFAULT_NMR_REFS = {
     "1H": 31.92,      # TMS (B3LYP/def2-TZVP)
@@ -19,6 +58,16 @@ DEFAULT_TMS_REFERENCES = [
   {"geom_method": "-", "geom_basis": "-", "method": "Experiment (Gas)", "basis": "-", "h1_shielding": 30.783, "c13_shielding": 188.0, "source": "[3, 4]"},
   {"geom_method": "-", "geom_basis": "-", "method": "Experiment (Flüssigkeit/rein)", "basis": "-", "h1_shielding": 32.873, "c13_shielding": None, "source": "[3]"},
   {"geom_method": "-", "geom_basis": "-", "method": "Experiment (Flüssigkeit/zylindrisch)", "basis": "-", "h1_shielding": 32.775, "c13_shielding": None, "source": "[3]"},
+  {"geom_method": "-", "geom_basis": "-", "method": "mPW1PW91", "basis": "def2-TZVP", "h1_shielding": 31.68, "c13_shielding": 186.96, "si29_shielding": 329.71, "source": "ORCA 6.1.1 (LeMoVi)"},
+  {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "method": "mPW1PW91", "basis": "6-311+G(2d,p)", "h1_shielding": 31.90, "c13_shielding": 186.07, "source": "CHESHIRE Table #1a"},
+  {"geom_method": "-", "geom_basis": "-", "method": "WC04", "basis": "def2-TZVP", "h1_shielding": 32.83, "c13_shielding": 188.14, "si29_shielding": 359.58, "source": "ORCA 6.1.1 (LeMoVi)"},
+  {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "method": "WC04", "basis": "6-311+G(2d,p)", "h1_shielding": None, "c13_shielding": 197.7, "source": "Wiitala et al. 2006"},
+  {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "method": "WC04", "basis": "aug-cc-pVDZ", "h1_shielding": None, "c13_shielding": 196.91, "source": "CHESHIRE Table #1a / Wiitala 2006"},
+  {"geom_method": "-", "geom_basis": "-", "method": "WP04", "basis": "def2-TZVP", "h1_shielding": 32.03, "c13_shielding": 178.14, "si29_shielding": 317.18, "source": "ORCA 6.1.1 (LeMoVi)"},
+  {"geom_method": "B3LYP-D3 (PCM)", "geom_basis": "6-311G(d p)", "method": "WP04", "basis": "6-311++G(2d p)", "h1_shielding": 31.6, "c13_shielding": None, "source": "[3]"},
+  {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "method": "WP04", "basis": "aug-cc-pVDZ", "h1_shielding": 31.97, "c13_shielding": None, "source": "CHESHIRE Table #1a / Wiitala 2006"},
+  {"geom_method": "-", "geom_basis": "-", "method": "BMK", "basis": "def2-TZVP", "h1_shielding": 31.75, "c13_shielding": 186.24, "si29_shielding": 312.61, "source": "ORCA 6.1.1 (LeMoVi)"},
+  {"geom_method": "BMK", "geom_basis": "6-31G(d)", "method": "BMK", "basis": "6-31G(d)", "h1_shielding": 31.70, "c13_shielding": 188.50, "source": "Konstantinov & Broadbelt 2011"},
   {"geom_method": "HF", "geom_basis": "STO-3G", "method": "HF", "basis": "STO-3G", "h1_shielding": 33.7573, "c13_shielding": 249.4485, "source": "[2]"},
   {"geom_method": "HF", "geom_basis": "STO-6G", "method": "HF", "basis": "STO-6G", "h1_shielding": 34.185, "c13_shielding": 251.8526, "source": "[2]"},
   {"geom_method": "HF", "geom_basis": "3-21G", "method": "HF", "basis": "3-21G", "h1_shielding": 33.8334, "c13_shielding": 214.6567, "source": "[2]"},
@@ -77,25 +126,98 @@ def save_tms_references(tms_list, workspace_dir=None):
         print(f"Error saving TMS references: {e}")
         return False
 
-def find_best_tms_match(method, basis, tms_list=None):
-    """Finds matching TMS reference entry by method and basis set."""
+def find_best_tms_match(method, basis, geom_method=None, geom_basis=None, tms_list=None,
+                        geom_solvent=None, nmr_solvent=None, solvent_model=None):
+    """Finds matching TMS reference entry with solvent awareness (analogous to Tantillo).
+    
+    Matching priority (highest to lowest):
+    1. NMR method + basis + nmr_solvent + solvent_model + geom_method + geom_basis + geom_solvent (full match)
+    2. NMR method + basis + nmr_solvent + solvent_model
+    3. NMR method + basis + nmr_solvent (any model)
+    4. NMR method + basis + geom_method + geom_basis (Gas only or matching geom_solvent)
+    5. NMR method + basis (Gas, any geom)
+    6. NMR method + basis (fallback)
+    7. NMR method (fallback)
+    """
     if tms_list is None:
         tms_list = load_tms_references()
+
     method_clean = str(method).strip().upper()
     basis_clean = str(basis).strip().upper()
+    gm_clean = str(geom_method).strip().upper() if geom_method else None
+    gb_clean = str(geom_basis).strip().upper() if geom_basis else None
+    gs_clean = str(geom_solvent).strip().upper() if geom_solvent else "GAS"
+    solv_clean = str(nmr_solvent).strip().upper() if nmr_solvent else "GAS"
+    model_clean = str(solvent_model).strip().upper() if solvent_model else None
 
-    # Exact match (Method and Basis)
-    for entry in tms_list:
-        e_method = str(entry.get("method", "")).strip().upper()
-        e_basis = str(entry.get("basis", "")).strip().upper()
-        if e_method == method_clean and e_basis == basis_clean:
-            return entry
+    def match_nmr(e):
+        return (normalize_method_alias(e.get("method")) == normalize_method_alias(method) and
+                str(e.get("basis", "")).strip().upper() == basis_clean)
 
-    # Fallback: Method match
-    for entry in tms_list:
-        e_method = str(entry.get("method", "")).strip().upper()
-        if e_method == method_clean:
-            return entry
+    def match_nmr_solvent(e):
+        s = e.get("nmr_solvent")
+        if not s or s == "-":
+            s = "GAS"
+        return str(s).strip().upper() == solv_clean
+
+    def match_model(e):
+        em = e.get("solvent_model")
+        if not em or em == "-":
+            em = None
+        return (str(em).strip().upper() if em else None) == model_clean
+
+    def match_geom(e):
+        return (normalize_method_alias(e.get("geom_method")) == normalize_method_alias(geom_method) and
+                str(e.get("geom_basis", "")).strip().upper() == gb_clean)
+
+    def match_geom_solvent(e):
+        s = e.get("geom_solvent")
+        if not s or s == "-":
+            s = "GAS"
+        return str(s).strip().upper() == gs_clean
+
+    # Priority 1: full exact match
+    if gm_clean and gb_clean and model_clean:
+        for e in tms_list:
+            if match_nmr(e) and match_nmr_solvent(e) and match_model(e) and match_geom(e) and match_geom_solvent(e):
+                return e
+
+    # Priority 2: NMR method/basis + solvent + model
+    if model_clean:
+        for e in tms_list:
+            if match_nmr(e) and match_nmr_solvent(e) and match_model(e):
+                return e
+
+    # Priority 3: NMR method/basis + solvent (any model)
+    if solv_clean != "GAS":
+        for e in tms_list:
+            if match_nmr(e) and match_nmr_solvent(e):
+                return e
+
+    # Priority 4: NMR method/basis + geom (Gas / matching geom_solvent)
+    if gm_clean and gb_clean:
+        for e in tms_list:
+            ns = e.get("nmr_solvent")
+            ns = str(ns).strip().upper() if ns else "GAS"
+            if match_nmr(e) and match_geom(e) and match_geom_solvent(e) and (ns == "GAS" or ns == "-"):
+                return e
+
+    # Priority 5: NMR method/basis, Gas, any geom
+    for e in tms_list:
+        ns = e.get("nmr_solvent")
+        ns = str(ns).strip().upper() if ns else "GAS"
+        if match_nmr(e) and (ns == "GAS" or ns == "-"):
+            return e
+
+    # Priority 6: NMR method/basis (any solvent/geom)
+    for e in tms_list:
+        if match_nmr(e):
+            return e
+
+    # Priority 7: NMR method (fallback)
+    for e in tms_list:
+        if normalize_method_alias(e.get("method")) == normalize_method_alias(method):
+            return e
 
 DEFAULT_TANTILLO_SCALING = [
   {"geom_method": "B3LYP", "geom_basis": "6-31G(d)", "geom_solvent": "Gas", "method": "B3LYP", "basis": "6-31G(d)", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -0.9957, "h1_intercept": 32.2884, "c13_slope": -0.9269, "c13_intercept": 187.4743, "source": "CHESHIRE Table #1a (Gas, G03/G09)"},
@@ -103,6 +225,19 @@ DEFAULT_TANTILLO_SCALING = [
   {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "geom_solvent": "Gas", "method": "B3LYP", "basis": "6-311+G(2d,p)", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.0592, "h1_intercept": 31.9654, "c13_slope": -1.0311, "c13_intercept": 180.7713, "source": "CHESHIRE Table #1a (Gas, G03/G09)"},
   {"geom_method": "B3LYP", "geom_basis": "6-311+G(2d,p)", "geom_solvent": "Gas", "method": "B3LYP", "basis": "6-311+G(2d,p)", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.0593, "h1_intercept": 32.0706, "c13_slope": -1.0228, "c13_intercept": 181.3782, "source": "CHESHIRE Table #1a (Gas, G03/G09)"},
   {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "geom_solvent": "Gas", "method": "B3LYP", "basis": "aug-cc-pVDZ", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.059, "h1_intercept": 31.7312, "c13_slope": -0.9842, "c13_intercept": 190.0157, "source": "CHESHIRE Table #1a (Gas, G03/G09)"},
+  {"geom_method": "B3LYP", "geom_basis": "def2-TZVP", "geom_solvent": "Gas", "method": "B3LYP", "basis": "def2-TZVP", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.000, "h1_intercept": 31.92, "c13_slope": -1.000, "c13_intercept": 183.80, "source": "Calibrated (LeMoVi)"},
+  {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "geom_solvent": "Gas", "method": "mPW1PW91", "basis": "6-311+G(2d,p)", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.0734, "h1_intercept": 31.8996, "c13_slope": -1.0306, "c13_intercept": 185.4855, "source": "CHESHIRE Table #1a (Gas, G03/G09)"},
+  {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "geom_solvent": "Chloroform", "method": "mPW1PW91", "basis": "6-311+G(2d,p)", "nmr_solvent": "Chloroform", "solvent_model": "PCM", "h1_slope": -1.0719, "h1_intercept": 31.8733, "c13_slope": -1.042, "c13_intercept": 186.3567, "source": "CHESHIRE Table #1c (Chloroform PCM)"},
+  {"geom_method": "B3LYP", "geom_basis": "def2-TZVP", "geom_solvent": "Gas", "method": "mPW1PW91", "basis": "def2-TZVP", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.000, "h1_intercept": 31.68, "c13_slope": -1.000, "c13_intercept": 186.96, "source": "ORCA 6.1.1 Calibrated (LeMoVi)"},
+  {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "geom_solvent": "Gas", "method": "WC04", "basis": "aug-cc-pVDZ", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": None, "h1_intercept": None, "c13_slope": -0.9563, "c13_intercept": 196.91, "source": "CHESHIRE Table #1a (Gas, G03/G09)"},
+  {"geom_method": "B3LYP", "geom_basis": "def2-TZVP", "geom_solvent": "Gas", "method": "WC04", "basis": "def2-TZVP", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.000, "h1_intercept": 32.83, "c13_slope": -1.000, "c13_intercept": 188.14, "source": "ORCA 6.1.1 Calibrated (LeMoVi)"},
+  {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "geom_solvent": "Gas", "method": "WP04", "basis": "aug-cc-pVDZ", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.0321, "h1_intercept": 31.9668, "c13_slope": None, "c13_intercept": None, "source": "CHESHIRE Table #1a (Gas, G03/G09)"},
+  {"geom_method": "B3LYP", "geom_basis": "6-31+G(d,p)", "geom_solvent": "Chloroform", "method": "WP04", "basis": "aug-cc-pVDZ", "nmr_solvent": "Chloroform", "solvent_model": "PCM", "h1_slope": -1.0271, "h1_intercept": 31.9316, "c13_slope": -0.9798, "c13_intercept": 184.2989, "source": "CHESHIRE Table #1c (Chloroform PCM)"},
+  {"geom_method": "B3LYP", "geom_basis": "def2-TZVP", "geom_solvent": "Gas", "method": "WP04", "basis": "def2-TZVP", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.000, "h1_intercept": 32.03, "c13_slope": -1.000, "c13_intercept": 178.14, "source": "ORCA 6.1.1 Calibrated (LeMoVi)"},
+  {"geom_method": "BMK", "geom_basis": "6-31G(d)", "geom_solvent": "Gas", "method": "BMK", "basis": "6-31G(d)", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.065, "h1_intercept": 31.85, "c13_slope": -0.985, "c13_intercept": 187.90, "source": "Konstantinov & Broadbelt 2011 / Calibrated"},
+  {"geom_method": "BMK", "geom_basis": "6-31G(d)", "geom_solvent": "Toluene", "method": "BMK", "basis": "6-31G(d)", "nmr_solvent": "Toluene", "solvent_model": "PCM", "h1_slope": -1.062, "h1_intercept": 31.82, "c13_slope": -0.982, "c13_intercept": 188.10, "source": "Konstantinov & Broadbelt 2011 (Toluene-d8)"},
+  {"geom_method": "BMK", "geom_basis": "6-311G(d)", "geom_solvent": "Toluene", "method": "BMK", "basis": "6-311G(d)", "nmr_solvent": "Toluene", "solvent_model": "PCM", "h1_slope": -1.058, "h1_intercept": 31.90, "c13_slope": -0.991, "c13_intercept": 186.50, "source": "Konstantinov & Broadbelt 2011 (Toluene-d8)"},
+  {"geom_method": "B3LYP", "geom_basis": "def2-TZVP", "geom_solvent": "Gas", "method": "BMK", "basis": "def2-TZVP", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.000, "h1_intercept": 31.75, "c13_slope": -1.000, "c13_intercept": 186.24, "source": "ORCA 6.1.1 Calibrated (LeMoVi)"},
   {"geom_method": "MP2", "geom_basis": "6-31+G(d,p)", "geom_solvent": "Gas", "method": "MP2", "basis": "6-31+G(d,p)", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.0565, "h1_intercept": 32.0189, "c13_slope": -0.9077, "c13_intercept": 202.752, "source": "CHESHIRE Table #1a (Gas, G03/G09)"},
   {"geom_method": "MP2", "geom_basis": "6-31+G(d,p)", "geom_solvent": "Gas", "method": "MP2", "basis": "6-311+G(2d,p)", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.0735, "h1_intercept": 32.0981, "c13_slope": -0.9889, "c13_intercept": 194.2927, "source": "CHESHIRE Table #1a (Gas, G03/G09)"},
   {"geom_method": "M06-2X", "geom_basis": "6-31G(d)", "geom_solvent": "Gas", "method": "M06-2X", "basis": "6-31G(d)", "nmr_solvent": "Gas", "solvent_model": None, "h1_slope": -1.1082, "h1_intercept": 32.6273, "c13_slope": -1.0591, "c13_intercept": 195.8694, "source": "CHESHIRE Table #1a (Gas, G03/G09)"},
@@ -161,7 +296,7 @@ def find_best_tantillo_match(method, basis, geom_method=None, geom_basis=None, t
     model_clean = str(solvent_model).strip().upper() if solvent_model else None
 
     def match_nmr(e):
-        return (str(e.get("method", "")).strip().upper() == method_clean and
+        return (normalize_method_alias(e.get("method")) == normalize_method_alias(method) and
                 str(e.get("basis", "")).strip().upper() == basis_clean)
 
     def match_solvent(e):
@@ -172,7 +307,7 @@ def find_best_tantillo_match(method, basis, geom_method=None, geom_basis=None, t
         return (str(em).strip().upper() if em else None) == model_clean
 
     def match_geom(e):
-        return (str(e.get("geom_method", "")).strip().upper() == gm_clean and
+        return (normalize_method_alias(e.get("geom_method")) == normalize_method_alias(geom_method) and
                 str(e.get("geom_basis", "")).strip().upper() == gb_clean)
 
     # Priority 1: full exact match
@@ -217,6 +352,35 @@ class OrcaJobManager:
         self.jobs_dir = os.path.join(workspace_dir, "orca_jobs")
         if not os.path.exists(self.jobs_dir):
             os.makedirs(self.jobs_dir)
+        self.orca_version = self.detect_orca_version()
+
+    def detect_orca_version(self, orca_cmd="orca"):
+        import shutil
+        resolved = shutil.which(orca_cmd)
+        if not resolved:
+            return None
+        try:
+            creationflags = 0
+            if sys.platform == "win32":
+                creationflags = subprocess.CREATE_NO_WINDOW
+            proc = subprocess.Popen(
+                [resolved, "-v"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                creationflags=creationflags
+            )
+            stdout, _ = proc.communicate(timeout=2)
+            version_match = re.search(r"Program Version\s+(\d+\.\d+\.\d+)", stdout, re.IGNORECASE)
+            if version_match:
+                return version_match.group(1)
+            banner_match = re.search(r"ORCA\s+(\d+\.\d+\.\d+)", stdout, re.IGNORECASE)
+            if banner_match:
+                return banner_match.group(1)
+        except Exception as e:
+            print(f"Error detecting ORCA version: {e}")
+        return None
 
     def get_job_dir(self, job_id):
         return os.path.join(self.jobs_dir, job_id)
@@ -247,14 +411,14 @@ class OrcaJobManager:
 
     @staticmethod
     def _build_solvent_block(model, solvent, use_draco=False):
-        """Generates ORCA %cpcm block for SMD, CPCM, or PCM solvation."""
+        """Generates ORCA %cpcm block for SMD, CPCM, PCM, or SCRF solvation."""
         if not model or model.lower() in ("none", "keines (gas)", "gas"):
             return ""
         block = "%cpcm\n"
         if model.upper() == "SMD":
             block += "  smd true\n"
             block += f'  SMDsolvent "{solvent}"\n'
-        else:  # CPCM or PCM
+        else:  # CPCM, PCM, or SCRF
             block += "  smd false\n"
             block += f'  solvent "{solvent}"\n'
         if use_draco:
@@ -280,43 +444,74 @@ class OrcaJobManager:
         nmr_m = nmr_method if (use_sep_nmr and nmr_method) else method
         nmr_b = nmr_basis if (use_sep_nmr and nmr_basis) else basis
 
+        geom_kw, geom_block = format_orca_method(geom_m)
+        nmr_kw, nmr_block = format_orca_method(nmr_m)
+
         opt_solv_block = self._build_solvent_block(opt_solvent_model, opt_solvent, use_draco)
         nmr_solv_block = self._build_solvent_block(nmr_solvent_model, nmr_solvent, use_draco)
+
+        # Check if we should output JSON property file (requires ORCA >= 6.1)
+        should_use_json = False
+        if self.orca_version:
+            try:
+                parts = [int(p) for p in self.orca_version.split(".")]
+                if len(parts) >= 2 and (parts[0] > 6 or (parts[0] == 6 and parts[1] >= 1)):
+                    should_use_json = True
+            except:
+                pass
+
+        json_prop_block = "%output\n  JSONPropFile true\nend\n" if should_use_json else ""
 
         if use_sep_nmr and ("NMR" in task) and ("Opt" in task):
             # Generate ORCA % Compound multi-step input
             opt_task = "Opt Freq" if "Freq" in task else "Opt"
-            opt_kws = [opt_task, geom_m]
+            opt_kws = [opt_task]
+            if geom_kw: opt_kws.append(geom_kw)
             if geom_b and "None" not in geom_b: opt_kws.append(geom_b)
-            if dispersion and dispersion.lower() != "none": opt_kws.append(dispersion)
+            if dispersion and dispersion.lower() != "none" and not bool(geom_block): opt_kws.append(dispersion)
             if custom_keywords: opt_kws.append(custom_keywords)
 
-            nmr_kws = ["NMR", nmr_m]
+            nmr_kws = ["NMR"]
+            if nmr_kw: nmr_kws.append(nmr_kw)
             if nmr_b and "None" not in nmr_b: nmr_kws.append(nmr_b)
 
-            inp_content = "% Compound\n"
+            inp_content = "%Compound\n"
             inp_content += "  New_Step\n"
             inp_content += f"    ! {' '.join(opt_kws)}\n"
+            if geom_block:
+                for bl in geom_block.strip().splitlines():
+                    inp_content += f"    {bl}\n"
             if opt_solv_block:
                 # indent each line of the block by 4 spaces inside New_Step
                 for bl in opt_solv_block.splitlines():
                     inp_content += f"    {bl}\n"
-            inp_content += "  End_Step\n"
+            if json_prop_block:
+                for bl in json_prop_block.splitlines():
+                    inp_content += f"    {bl}\n"
+            inp_content += f"    * xyz {charge} {multiplicity}\n"
+            for line in xyz_content.strip().splitlines():
+                inp_content += f"      {line}\n"
+            inp_content += "    *\n"
+            inp_content += "  Step_End\n"
             inp_content += "  New_Step\n"
             inp_content += f"    ! {' '.join(nmr_kws)}\n"
+            if nmr_block:
+                for bl in nmr_block.strip().splitlines():
+                    inp_content += f"    {bl}\n"
             if nmr_solv_block:
                 for bl in nmr_solv_block.splitlines():
                     inp_content += f"    {bl}\n"
-            inp_content += "  End_Step\n"
+            if json_prop_block:
+                for bl in json_prop_block.splitlines():
+                    inp_content += f"    {bl}\n"
+            inp_content += "  Step_End\n"
             inp_content += "End\n"
             inp_content += f"%maxcore {maxcore}\n"
             if nprocs > 1:
                 inp_content += f"%pal\n  nprocs {nprocs}\nend\n"
-            inp_content += f"\n* xyz {charge} {multiplicity}\n"
-            inp_content += xyz_content.strip() + "\n"
-            inp_content += "*\n"
         else:
             # Build single-step keyword line
+            single_kw, single_block = format_orca_method(method)
             keywords = []
             task_kw = task
             if task == "NMR": task_kw = "NMR"
@@ -325,11 +520,13 @@ class OrcaJobManager:
             elif task == "Opt+Freq+NMR": task_kw = "Opt Freq NMR"
 
             keywords.append(task_kw)
-            keywords.append(method)
+            if single_kw:
+                keywords.append(single_kw)
             if basis and "None" not in basis:
                 keywords.append(basis)
 
-            if dispersion and dispersion.lower() != "none":
+            is_custom_libxc = bool(single_block)
+            if dispersion and dispersion.lower() != "none" and task != "NMR" and not is_custom_libxc:
                 keywords.append(dispersion)
 
             if custom_keywords:
@@ -348,12 +545,17 @@ class OrcaJobManager:
             inp_content += f"%maxcore {maxcore}\n"
             if nprocs > 1:
                 inp_content += f"%pal\n  nprocs {nprocs}\nend\n"
+            if single_block:
+                inp_content += single_block
+            if json_prop_block:
+                inp_content += json_prop_block
             if single_solv_block:
                 inp_content += single_solv_block
 
             inp_content += f"\n* xyz {charge} {multiplicity}\n"
             inp_content += xyz_content.strip() + "\n"
             inp_content += "*\n"
+
 
         # Save files
         with open(os.path.join(job_dir, "orca_input.inp"), "w") as f:
@@ -421,7 +623,7 @@ class OrcaJobManager:
         try:
             stdout_handle = open(out_file, "w")
             proc = subprocess.Popen(
-                [orca_path, "orca_input.inp"],
+                [orca_path, os.path.abspath(inp_file)],
                 cwd=job_dir,
                 stdout=stdout_handle,
                 stderr=subprocess.STDOUT,
@@ -579,18 +781,95 @@ class OrcaJobManager:
         if not os.path.exists(out_file):
             return results
 
-        # 1. Parse energy steps (SCF Energies and Opt steps)
-        # Look for "FINAL SINGLE POINT ENERGY" or "SCF ERG"
+        # 1. Parse using OPI if available and JSON property file is there
+        if OPI_AVAILABLE:
+            try:
+                prop_json = os.path.join(job_dir, "orca_input.property.json")
+                if os.path.exists(prop_json):
+                    out = OpiOutput(out_file)
+                    out.parse()
+
+                    # 1.1 Final Energy
+                    if hasattr(out, "get_final_energy"):
+                        try:
+                            results["energies"] = [out.get_final_energy()]
+                        except Exception:
+                            pass
+
+                    # 1.2 Optimized XYZ / coordinates
+                    if hasattr(out, "get_structure"):
+                        try:
+                            structure = out.get_structure()
+                            if hasattr(structure, "symbols") and hasattr(structure, "coordinates"):
+                                xyz_lines = []
+                                for sym, coord in zip(structure.symbols, structure.coordinates):
+                                    xyz_lines.append(f"{sym} {coord[0]} {coord[1]} {coord[2]}")
+                                results["optimized_xyz"] = f"{len(xyz_lines)}\nParsed via OPI\n" + "\n".join(xyz_lines)
+                        except Exception:
+                            pass
+
+                    # Direct access fallback from results_properties
+                    if hasattr(out, "results_properties") and out.results_properties:
+                        props = out.results_properties
+                        if hasattr(props, "geometries") and props.geometries:
+                            last_geom = props.geometries[-1]
+
+                            # Final energy if still empty
+                            if not results["energies"]:
+                                if hasattr(last_geom, "thermochemistry_energies") and last_geom.thermochemistry_energies:
+                                    results["energies"] = [last_geom.thermochemistry_energies[0].elenergy]
+                                elif hasattr(last_geom, "single_point_data") and last_geom.single_point_data:
+                                    results["energies"] = [last_geom.single_point_data.elenergy]
+
+                            # Coordinates if still empty
+                            if not results["optimized_xyz"] and hasattr(last_geom, "atoms") and last_geom.atoms:
+                                xyz_lines = []
+                                for atom in last_geom.atoms:
+                                    xyz_lines.append(f"{atom.element} {atom.x} {atom.y} {atom.z}")
+                                results["optimized_xyz"] = f"{len(xyz_lines)}\nParsed via OPI\n" + "\n".join(xyz_lines)
+
+                            # 1.3 Vibrational Frequencies & IR intensities
+                            if hasattr(last_geom, "vibrational_frequencies") and last_geom.vibrational_frequencies:
+                                for idx, freq_obj in enumerate(last_geom.vibrational_frequencies):
+                                    results["frequencies"].append({
+                                        "index": idx,
+                                        "frequency": getattr(freq_obj, "frequency", 0.0),
+                                        "intensity": getattr(freq_obj, "intensity", 1.0)
+                                    })
+                                results["vibrational_frequencies"] = results["frequencies"]
+
+                            # 1.4 NMR Shielding Constants
+                            if hasattr(last_geom, "nmr_shieldings") and last_geom.nmr_shieldings:
+                                for idx, shielding_obj in enumerate(last_geom.nmr_shieldings):
+                                    results["nmr_shieldings"][idx] = {
+                                        "element": getattr(shielding_obj, "element", ""),
+                                        "shielding": getattr(shielding_obj, "shielding", 0.0)
+                                    }
+
+                            # 1.5 Thermodynamics (Enthalpy, Gibbs free energy, Entropy)
+                            if hasattr(last_geom, "thermodynamic_properties") and last_geom.thermodynamic_properties:
+                                thermo = last_geom.thermodynamic_properties
+                                results["enthalpy"] = getattr(thermo, "enthalpy", None)
+                                results["gibbs_energy"] = getattr(thermo, "gibbs_free_energy", None)
+                                results["entropy_correction"] = getattr(thermo, "entropy_correction", None)
+
+                            # 1.6 Dipole Moment
+                            if hasattr(last_geom, "dipole_moment") and last_geom.dipole_moment:
+                                results["dipole_magnitude"] = getattr(last_geom.dipole_moment, "magnitude", None)
+            except Exception as opi_err:
+                print(f"OPI parsing failed, falling back to regex: {opi_err}")
+
+        # 2. Parse using traditional RegEx (either as main path or fallback)
         try:
             with open(out_file, "r") as f:
                 content = f.read()
 
             # Find all SCF energies
-            energy_matches = re.findall(r"FINAL SINGLE POINT ENERGY\s+(-?\d+\.\d+)", content)
-            if not energy_matches:
-                energy_matches = re.findall(r"SCF ERG\s+=\s+(-?\d+\.\d+)", content)
-            
-            results["energies"] = [float(e) for e in energy_matches]
+            if not results["energies"]:
+                energy_matches = re.findall(r"FINAL SINGLE POINT ENERGY\s+(-?\d+\.\d+)", content)
+                if not energy_matches:
+                    energy_matches = re.findall(r"SCF ERG\s+=\s+(-?\d+\.\d+)", content)
+                results["energies"] = [float(e) for e in energy_matches]
 
             # 2. Parse optimized coordinates (fallback if orca_input.xyz isn't there)
             # Find the last cartesian coordinate block
@@ -599,20 +878,21 @@ class OrcaJobManager:
                 content, 
                 re.DOTALL | re.IGNORECASE
             )
-            if coord_blocks:
-                last_block = coord_blocks[-1].strip().split("\n")
-                xyz_lines = []
-                for line in last_block:
-                    parts = line.split()
-                    if len(parts) == 4:
-                        xyz_lines.append(f"{parts[0]} {parts[1]} {parts[2]} {parts[3]}")
-                if xyz_lines:
-                    results["optimized_xyz"] = f"{len(xyz_lines)}\nParsed from output\n" + "\n".join(xyz_lines)
+            if not results["optimized_xyz"]:
+                if coord_blocks:
+                    last_block = coord_blocks[-1].strip().split("\n")
+                    xyz_lines = []
+                    for line in last_block:
+                        parts = line.split()
+                        if len(parts) == 4:
+                            xyz_lines.append(f"{parts[0]} {parts[1]} {parts[2]} {parts[3]}")
+                    if xyz_lines:
+                        results["optimized_xyz"] = f"{len(xyz_lines)}\nParsed from output\n" + "\n".join(xyz_lines)
 
-            # If the output .xyz file exists, use it as primary
-            if os.path.exists(xyz_file):
-                with open(xyz_file, "r") as f:
-                    results["optimized_xyz"] = f.read()
+                # If the output .xyz file exists, use it as primary
+                if os.path.exists(xyz_file):
+                    with open(xyz_file, "r") as f:
+                        results["optimized_xyz"] = f.read()
 
             # 2.5 Parse optimization trajectory (.trj.xyz or from output coord blocks)
             trj_file = os.path.join(job_dir, "orca_input_trj.xyz")
@@ -646,117 +926,124 @@ class OrcaJobManager:
                         results["trajectory"].append(f"{len(xyz_lines)}\nParsed from output\n" + "\n".join(xyz_lines))
 
             # 3. Parse Vibrational Frequencies & IR Intensities
-            ir_intensities = {}
+            if not results["frequencies"]:
+                ir_intensities = {}
 
-            # A) Try parsing IR SPECTRUM table from main output
-            ir_match = re.search(r"IR SPECTRUM\r?\n-+(.*?)(?=THERMOCHEMISTRY|NORMAL MODES|---|$\n)", content, re.DOTALL | re.IGNORECASE)
-            if ir_match:
-                ir_lines = ir_match.group(1).strip().splitlines()
-                for line in ir_lines:
-                    m = re.match(r"\s*(\d+):\s*(-?\d+\.\d+)\s+(?:[\d\.\-]+)\s+([\d\.\-]+)", line)
-                    if m:
-                        idx = int(m.group(1))
-                        freq = float(m.group(2))
-                        inten = float(m.group(3))
-                        ir_intensities[idx] = (freq, inten)
+                # A) Try parsing IR SPECTRUM table from main output
+                ir_match = re.search(r"IR SPECTRUM\r?\n-+(.*?)(?=THERMOCHEMISTRY|NORMAL MODES|---|$\n)", content, re.DOTALL | re.IGNORECASE)
+                if ir_match:
+                    ir_lines = ir_match.group(1).strip().splitlines()
+                    for line in ir_lines:
+                        m = re.match(r"\s*(\d+):\s*(-?\d+\.\d+)\s+(?:[\d\.\-]+)\s+([\d\.\-]+)", line)
+                        if m:
+                            idx = int(m.group(1))
+                            freq = float(m.group(2))
+                            inten = float(m.group(3))
+                            ir_intensities[idx] = (freq, inten)
 
-            # B) Try parsing VIBRATIONAL FREQUENCIES section
-            freq_section = re.search(r"VIBRATIONAL FREQUENCIES\r?\n-+(.*?)(?=NORMAL MODES|IR SPECTRUM|THERMOCHEMISTRY|---|$\n)", content, re.DOTALL | re.IGNORECASE)
-            if freq_section:
-                freq_lines = freq_section.group(1).strip().splitlines()
-                for line in freq_lines:
-                    m = re.match(r"\s*(\d+):\s*(-?\d+\.\d+)", line)
-                    if m:
-                        idx = int(m.group(1))
-                        val = float(m.group(2))
-                        if idx not in ir_intensities:
-                            ir_intensities[idx] = (val, 1.0)
+                # B) Try parsing VIBRATIONAL FREQUENCIES section
+                freq_section = re.search(r"VIBRATIONAL FREQUENCIES\r?\n-+(.*?)(?=NORMAL MODES|IR SPECTRUM|THERMOCHEMISTRY|---|$\n)", content, re.DOTALL | re.IGNORECASE)
+                if freq_section:
+                    freq_lines = freq_section.group(1).strip().splitlines()
+                    for line in freq_lines:
+                        m = re.match(r"\s*(\d+):\s*(-?\d+\.\d+)", line)
+                        if m:
+                            idx = int(m.group(1))
+                            val = float(m.group(2))
+                            if idx not in ir_intensities:
+                                ir_intensities[idx] = (val, 1.0)
 
-            # C) Fallback: Check for orca_input.hess file if present in job_dir
-            hess_file = os.path.join(job_dir, "orca_input.hess")
-            if not ir_intensities and os.path.exists(hess_file):
-                try:
-                    with open(hess_file, "r") as f:
-                        h_content = f.read()
-                    vib_match = re.search(r"\$vibrational_frequencies\n\s*(\d+)\n(.*?)(?=\n\$|\Z)", h_content, re.DOTALL)
-                    if vib_match:
-                        for line in vib_match.group(2).strip().splitlines():
-                            parts = line.split()
-                            if len(parts) >= 2:
-                                try:
-                                    idx = int(parts[0])
-                                    val = float(parts[1])
-                                    ir_intensities[idx] = (val, 1.0)
-                                except ValueError:
-                                    pass
-                except Exception as ex_h:
-                    print("Hessian parse fallback notice:", ex_h)
+                # C) Fallback: Check for orca_input.hess file if present in job_dir
+                hess_file = os.path.join(job_dir, "orca_input.hess")
+                if not ir_intensities and os.path.exists(hess_file):
+                    try:
+                        with open(hess_file, "r") as f:
+                            h_content = f.read()
+                        vib_match = re.search(r"\$vibrational_frequencies\n\s*(\d+)\n(.*?)(?=\n\$|\Z)", h_content, re.DOTALL)
+                        if vib_match:
+                            for line in vib_match.group(2).strip().splitlines():
+                                parts = line.split()
+                                if len(parts) >= 2:
+                                    try:
+                                        idx = int(parts[0])
+                                        val = float(parts[1])
+                                        ir_intensities[idx] = (val, 1.0)
+                                    except ValueError:
+                                        pass
+                    except Exception as ex_h:
+                        print("Hessian parse fallback notice:", ex_h)
 
-            # Populate results["frequencies"]
-            for idx in sorted(ir_intensities.keys()):
-                freq_val, int_val = ir_intensities[idx]
-                results["frequencies"].append({
-                    "index": idx,
-                    "frequency": freq_val,
-                    "intensity": max(0.0, int_val)
-                })
+                # Populate results["frequencies"]
+                for idx in sorted(ir_intensities.keys()):
+                    freq_val, int_val = ir_intensities[idx]
+                    results["frequencies"].append({
+                        "index": idx,
+                        "frequency": freq_val,
+                        "intensity": max(0.0, int_val)
+                    })
 
-            results["vibrational_frequencies"] = results["frequencies"]
+                results["vibrational_frequencies"] = results["frequencies"]
 
             # 4. Parse NMR Shielding constants
-            summary_match = re.search(
-                r"CHEMICAL SHIELDING SUMMARY \(ppm\).*?----\s*----\s*------------\s+------------\n(.*?)(?:\n\n|\n\s*\n|---|$)",
-                content,
-                re.DOTALL
-            )
-            if summary_match:
-                table_lines = summary_match.group(1).strip().splitlines()
-                for line in table_lines:
-                    parts = line.split()
-                    if len(parts) >= 3:
-                        try:
-                            atom_idx = int(parts[0])
-                            element = parts[1]
-                            shielding = float(parts[2])
-                            results["nmr_shieldings"][atom_idx] = {
-                                "element": element,
-                                "shielding": shielding
-                            }
-                        except ValueError:
-                            continue
-
-            # Fallback for NMR: Look for individual nucleus blocks:
             if not results["nmr_shieldings"]:
-                nucleus_matches = re.finditer(
-                    r"Nucleus\s+(\d+)([A-Za-z]+)\s*:\s*\n.*?Total\s+(?:-?\d+\.\d+\s+){3}iso=\s+(-?\d+\.\d+)",
+                summary_match = re.search(
+                    r"CHEMICAL SHIELDING SUMMARY \(ppm\).*?----\s*----\s*------------\s+------------\n(.*?)(?:\n\n|\n\s*\n|---|$)",
                     content,
                     re.DOTALL
                 )
-                for m in nucleus_matches:
-                    atom_idx = int(m.group(1))
-                    element = m.group(2)
-                    shielding = float(m.group(3))
-                    results["nmr_shieldings"][atom_idx] = {
-                        "element": element,
-                        "shielding": shielding
-                    }
+                if summary_match:
+                    table_lines = summary_match.group(1).strip().splitlines()
+                    for line in table_lines:
+                        parts = line.split()
+                        if len(parts) >= 3:
+                            try:
+                                atom_idx = int(parts[0])
+                                element = parts[1]
+                                shielding = float(parts[2])
+                                results["nmr_shieldings"][atom_idx] = {
+                                    "element": element,
+                                    "shielding": shielding
+                                }
+                            except ValueError:
+                                continue
+
+                # Fallback for NMR: Look for individual nucleus blocks:
+                if not results["nmr_shieldings"]:
+                    nucleus_matches = re.finditer(
+                        r"Nucleus\s+(\d+)\s*([A-Za-z]+)\s*:\s*\n.*?Total\s+(?:-?\d+\.\d+\s+){3}iso=\s+(-?\d+\.\d+)",
+                        content,
+                        re.DOTALL
+                    )
+                    for m in nucleus_matches:
+                        atom_idx = int(m.group(1))
+                        element = m.group(2)
+                        shielding = float(m.group(3))
+                        results["nmr_shieldings"][atom_idx] = {
+                            "element": element,
+                            "shielding": shielding
+                        }
 
             # 5. Parse Thermodynamics
-            enthalpy_match = re.search(r"(?:Enthalpy \(H\)|Total Enthalpy)\s*\.+\s*(-?\d+\.\d+)\s+Eh", content)
-            results["enthalpy"] = float(enthalpy_match.group(1)) if enthalpy_match else None
+            if results.get("enthalpy") is None:
+                enthalpy_match = re.search(r"(?:Enthalpy \(H\)|Total Enthalpy)\s*\.+\s*(-?\d+\.\d+)\s+Eh", content)
+                results["enthalpy"] = float(enthalpy_match.group(1)) if enthalpy_match else None
 
-            gibbs_match = re.search(r"(?:Gibbs free enthalpy \(G\)|Final Gibbs Free Enthalpy|Gibbs free energy)\s*\.+\s*(-?\d+\.\d+)\s+Eh", content)
-            results["gibbs_energy"] = float(gibbs_match.group(1)) if gibbs_match else None
+            if results.get("gibbs_energy") is None:
+                gibbs_match = re.search(r"(?:Gibbs free enthalpy \(G\)|Final Gibbs Free Enthalpy|Gibbs free energy)\s*\.+\s*(-?\d+\.\d+)\s+Eh", content)
+                results["gibbs_energy"] = float(gibbs_match.group(1)) if gibbs_match else None
 
-            entropy_match = re.search(r"(?:Total Entropy Correction|Entropy correction)\s*\.+\s*(-?\d+\.\d+)\s+Eh", content)
-            if entropy_match:
-                results["entropy_correction"] = float(entropy_match.group(1))
-            else:
-                entropy_match_cal = re.search(r"Total Entropy\s*\.+\s*(-?\d+\.\d+)\s+cal/mol", content)
-                results["entropy_correction"] = float(entropy_match_cal.group(1)) * 298.15 * 1.5936e-6 if entropy_match_cal else None
+            if results.get("entropy_correction") is None:
+                entropy_match = re.search(r"(?:Total Entropy Correction|Entropy correction)\s*\.+\s*(-?\d+\.\d+)\s+Eh", content)
+                if entropy_match:
+                    results["entropy_correction"] = float(entropy_match.group(1))
+                else:
+                    entropy_match_cal = re.search(r"Total Entropy\s*\.+\s*(-?\d+\.\d+)\s+cal/mol", content)
+                    results["entropy_correction"] = float(entropy_match_cal.group(1)) * 298.15 * 1.5936e-6 if entropy_match_cal else None
 
-            dipole_match = re.search(r"Magnitude \(Debye\)\s*:\s*(\d+\.\d+)", content)
-            results["dipole_magnitude"] = float(dipole_match.group(1)) if dipole_match else None
+            if results.get("dipole_magnitude") is None:
+                dipole_match = re.search(r"Magnitude \(Debye\)\s*:\s*(\d+\.\d+)", content)
+                results["dipole_magnitude"] = float(dipole_match.group(1)) if dipole_match else None
+
 
             # 6. Parse Normal Modes displacements
             normal_modes_match = re.search(r"NORMAL MODES\r?\n-+(.*?)(?=IR SPECTRUM|THERMOCHEMISTRY|---|$\n)", content, re.DOTALL | re.IGNORECASE)

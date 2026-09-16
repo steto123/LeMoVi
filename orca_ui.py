@@ -14,7 +14,8 @@ from PyQt5.QtGui import QFont, QColor, QPainter, QPen
 
 from orca_manager import (OrcaJobManager, DEFAULT_NMR_REFS, DEFAULT_TMS_REFERENCES, 
                         load_tms_references, save_tms_references, find_best_tms_match,
-                        DEFAULT_TANTILLO_SCALING, load_tantillo_scaling, save_tantillo_scaling, find_best_tantillo_match)
+                        DEFAULT_TANTILLO_SCALING, load_tantillo_scaling, save_tantillo_scaling, find_best_tantillo_match,
+                        format_orca_method)
 
 
 class EnergyPlotWidget(QWidget):
@@ -233,22 +234,67 @@ class IrSpectrumPlotWidget(QWidget):
 
 class NmrSpectrumPlotWidget(QWidget):
     """Widget for plotting calculated 1H or 13C NMR Chemical Shift Spectra with Lorentzian broadening."""
+    atomClicked = pyqtSignal(str)
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.shifts = []
         self.nucleus = "1H"
         self.fwhm = 0.05
+        self.highlighted_atom = None
         self.setMinimumHeight(240)
+        self.setCursor(Qt.PointingHandCursor)
 
     def set_data(self, shifts, nucleus="1H"):
         self.nucleus = nucleus
         self.fwhm = 0.05 if nucleus == "1H" else 0.5
         self.shifts = [s for s in shifts if s.get("elem") == ("H" if nucleus == "1H" else "C")]
+        self.highlighted_atom = None
         self.update()
 
     def set_fwhm(self, fwhm):
         self.fwhm = max(0.005, float(fwhm))
         self.update()
+
+    def highlight_atom(self, atom_name):
+        self.highlighted_atom = atom_name
+        self.update()
+
+    def mousePressEvent(self, event):
+        if not self.shifts:
+            return
+        
+        margin_left = 65
+        margin_right = 25
+        w = self.width() - margin_left - margin_right
+        
+        if self.nucleus == "1H":
+            x_min, x_max = -0.5, 12.5
+        else:
+            x_min, x_max = -5.0, 220.0
+            
+        x_span = x_max - x_min
+        click_x = event.x()
+        
+        if click_x < margin_left or click_x > self.width() - margin_right:
+            return
+            
+        # Convert X coordinate back to ppm chemical shift value
+        clicked_ppm = x_max - ((click_x - margin_left) / w) * x_span
+        
+        closest_shift = None
+        min_diff = float("inf")
+        threshold = 0.3 if self.nucleus == "1H" else 4.0
+        
+        for s in self.shifts:
+            diff = abs(s["shift"] - clicked_ppm)
+            if diff < min_diff and diff < threshold:
+                min_diff = diff
+                closest_shift = s
+                
+        if closest_shift:
+            self.highlight_atom(closest_shift["atom"])
+            self.atomClicked.emit(closest_shift["atom"])
 
     def paintEvent(self, event):
         painter = QPainter(self)
@@ -325,21 +371,31 @@ class NmrSpectrumPlotWidget(QWidget):
             painter.drawLine(int(p1[0]), int(p1[1]), int(p2[0]), int(p2[1]))
 
         # Atom Labels & Delta sticks
-        painter.setPen(QPen(QColor("#ffffff"), 1, Qt.SolidLine))
         for s in self.shifts:
             shift_val = s["shift"]
             if x_min <= shift_val <= x_max:
                 px = margin_left + ((x_max - shift_val) / x_span) * w
-                painter.drawLine(int(px), margin_top + 30, int(px), margin_top + 20)
-                painter.setPen(QColor("#4fc3f7"))
-                painter.setFont(QFont("Segoe UI", 7))
-                painter.drawText(int(px) - 12, margin_top + 16, f"{s['atom']} ({shift_val:.2f})")
-                painter.setPen(QPen(QColor("#ffffff"), 1, Qt.SolidLine))
-
+                is_high = (self.highlighted_atom == s["atom"])
+                if is_high:
+                    painter.setPen(QPen(QColor("#ff3333"), 2, Qt.SolidLine))
+                    painter.drawLine(int(px), margin_top + h, int(px), margin_top + 8)
+                    painter.setBrush(QColor("#ff3333"))
+                    painter.drawEllipse(int(px) - 4, margin_top + 8, 8, 8)
+                    painter.setPen(QColor("#ff3333"))
+                    painter.setFont(QFont("Segoe UI", 9, QFont.Bold))
+                    painter.drawText(int(px) - 14, margin_top + 4, f"{s['atom']} ({shift_val:.2f})")
+                else:
+                    painter.setPen(QPen(QColor("#ffffff"), 1, Qt.SolidLine))
+                    painter.drawLine(int(px), margin_top + 30, int(px), margin_top + 20)
+                    painter.setPen(QColor("#4fc3f7"))
+                    painter.setFont(QFont("Segoe UI", 7))
+                    painter.drawText(int(px) - 12, margin_top + 16, f"{s['atom']} ({shift_val:.2f})")
+        painter.setPen(QPen(QColor("#ffffff"), 1, Qt.SolidLine))
+        painter.setBrush(Qt.NoBrush)
 
 class OrcaSetupDialog(QDialog):
 
-    def __init__(self, parent, xyz_content, job_manager):
+    def __init__(self, parent, xyz_content, job_manager, default_name="orca_calc"):
         super().__init__(parent)
         self.setWindowTitle("ORCA 6 Calculation Setup")
         self.resize(750, 500)
@@ -361,7 +417,7 @@ class OrcaSetupDialog(QDialog):
 
         # Job Name
         left_layout.addWidget(QLabel("Job Name:"))
-        self.name_input = QLineEdit("orca_calc")
+        self.name_input = QLineEdit(default_name)
         left_layout.addWidget(self.name_input)
 
         # Task/Calculation Type
@@ -376,7 +432,7 @@ class OrcaSetupDialog(QDialog):
         left_layout.addWidget(QLabel("Method/Functional (Geometry):"))
         self.method_combo = QComboBox()
         self.method_combo.addItems([
-            "B3LYP", "PBE0", "M06-2X", "wB97X-D4", "HF", "r2SCAN-3c", "HF-3c", "MP2", "DLPNO-CCSD(T)"
+            "B3LYP", "PBE0", "mPW1PW91", "BMK", "WC04", "WP04", "M06-2X", "wB97X-D4", "HF", "r2SCAN-3c", "HF-3c", "MP2", "DLPNO-CCSD(T)"
         ])
         left_layout.addWidget(self.method_combo)
 
@@ -414,20 +470,36 @@ class OrcaSetupDialog(QDialog):
         
         self.nmr_method_combo = QComboBox()
         self.nmr_method_combo.addItems([
-            "mPW1PW91", "B3LYP", "PBE0", "M06-2X", "M06-L", "WP04", "WC04", "VSXC", "MP2", "HF"
+            "mPW1PW91", "BMK", "WC04", "WP04", "B3LYP", "PBE0", "M06-2X", "M06-L", "VSXC", "MP2", "HF"
         ])
         
         self.nmr_basis_combo = QComboBox()
         self.nmr_basis_combo.addItems([
-            "6-311+G(2d,p)", "6-31+G(d,p)", "6-31G(d)", "aug-cc-pVDZ", "def2-TZVP", "pcseg-2", "aug-pcseg-2"
+            # Karlsruhe/Ahlrichs Basis Sets
+            "def2-SVP", "def2-TZVP", "def2-TZVPP", "def2-QZVP", "def2-mSVP",
+            
+            # Minimally Augmented def2 Basis Sets
+            "ma-def2-SVP", "ma-def2-TZVP", "ma-def2-TZVPP",
+            
+            # Pople Basis Sets
+            "6-31G", "6-31G*", "6-31G**", "6-31+G*", "6-31++G**", "6-31+G(d,p)", "6-311+G(2d,p)",
+            
+            # Jensen's Polarization Consistent (Optimized for DFT Properties)
+            "pcseg-1", "pcseg-2", "pcseg-3", "aug-pcseg-1", "aug-pcseg-2",
+            
+            # Dunning's Correlation Consistent (Optimized for Wavefunction Methods)
+            "cc-pVDZ", "cc-pVTZ", "cc-pVQZ", "aug-cc-pVDZ", "aug-cc-pVTZ", "aug-cc-pVQZ",
+            
+            "None (Semi-empirical)"
         ])
+        self.nmr_basis_combo.setCurrentText("6-311+G(2d,p)")
         
         nmr_layout.addRow("NMR Method:", self.nmr_method_combo)
         nmr_layout.addRow("NMR Basis Set:", self.nmr_basis_combo)
 
         # Solvent for NMR step (inside sep_nmr_widget)
         self.nmr_solvent_model_combo = QComboBox()
-        self.nmr_solvent_model_combo.addItems(["None (Gas)", "CPCM", "SMD", "PCM"])
+        self.nmr_solvent_model_combo.addItems(["None (Gas)", "CPCM", "SMD", "PCM", "SCRF"])
         self.nmr_solvent_model_combo.setCurrentIndex(0)
         self.nmr_solvent_model_combo.currentTextChanged.connect(self._update_nmr_solvent_visibility)
         self.nmr_solvent_model_combo.currentTextChanged.connect(self.update_preview)
@@ -458,7 +530,7 @@ class OrcaSetupDialog(QDialog):
 
         solv_row = QHBoxLayout()
         self.opt_solvent_model_combo = QComboBox()
-        self.opt_solvent_model_combo.addItems(["None (Gas)", "CPCM", "SMD", "PCM"])
+        self.opt_solvent_model_combo.addItems(["None (Gas)", "CPCM", "SMD", "PCM", "SCRF"])
         self.opt_solvent_model_combo.setCurrentIndex(0)
         self.opt_solvent_model_combo.currentTextChanged.connect(self._update_opt_solvent_visibility)
         self.opt_solvent_model_combo.currentTextChanged.connect(self.update_preview)
@@ -633,50 +705,83 @@ class OrcaSetupDialog(QDialog):
 
             nmr_m = self.nmr_method_combo.currentText()
             nmr_b = self.nmr_basis_combo.currentText().split()[0]
+            if "None" in nmr_b: nmr_b = ""
 
             disp = self.disp_combo.currentText()
             custom = self.custom_kw_input.text().strip()
 
+            geom_kw, geom_block = format_orca_method(geom_m)
+            nmr_kw, nmr_block_method = format_orca_method(nmr_m)
+
             opt_task = "Opt Freq" if "Freq" in task else "Opt"
-            opt_kws = [opt_task, geom_m]
+            opt_kws = [opt_task]
+            if geom_kw: opt_kws.append(geom_kw)
             if geom_b: opt_kws.append(geom_b)
-            if disp != "None": opt_kws.append(disp)
+            if disp != "None" and not bool(geom_block): opt_kws.append(disp)
             if custom: opt_kws.append(custom)
 
-            nmr_kws = ["NMR", nmr_m, nmr_b]
+            nmr_kws = ["NMR"]
+            if nmr_kw: nmr_kws.append(nmr_kw)
+            if nmr_b: nmr_kws.append(nmr_b)
 
-            inp = "% Compound\n"
+            should_use_json = False
+            if self.job_manager and getattr(self.job_manager, "orca_version", None):
+                try:
+                    parts = [int(p) for p in self.job_manager.orca_version.split(".")]
+                    if len(parts) >= 2 and (parts[0] > 6 or (parts[0] == 6 and parts[1] >= 1)):
+                        should_use_json = True
+                except:
+                    pass
+
+            json_prop_block = "%output\n  JSONPropFile true\nend\n" if should_use_json else ""
+
+            inp = "%Compound\n"
             inp += "  New_Step\n"
             inp += f"    ! {' '.join(opt_kws)}\n"
+            if geom_block:
+                for bl in geom_block.strip().splitlines():
+                    inp += f"    {bl}\n"
             if opt_block:
                 for bl in opt_block.splitlines():
                     inp += f"    {bl}\n"
-            inp += "  End_Step\n"
+            if json_prop_block:
+                for bl in json_prop_block.splitlines():
+                    inp += f"    {bl}\n"
+            inp += f"    * xyz {self.charge_spin.value()} {self.multi_spin.value()}\n"
+            for line in self.xyz_content.strip().splitlines():
+                inp += f"      {line}\n"
+            inp += "    *\n"
+            inp += "  Step_End\n"
             inp += "  New_Step\n"
             inp += f"    ! {' '.join(nmr_kws)}\n"
+            if nmr_block_method:
+                for bl in nmr_block_method.strip().splitlines():
+                    inp += f"    {bl}\n"
             if nmr_block:
                 for bl in nmr_block.splitlines():
                     inp += f"    {bl}\n"
-            inp += "  End_Step\n"
+            if json_prop_block:
+                for bl in json_prop_block.splitlines():
+                    inp += f"    {bl}\n"
+            inp += "  Step_End\n"
             inp += "End\n"
             inp += f"%maxcore {self.mem_spin.value()}\n"
             if self.cores_spin.value() > 1:
                 inp += f"%pal\n  nprocs {self.cores_spin.value()}\nend\n"
-            inp += f"\n* xyz {self.charge_spin.value()} {self.multi_spin.value()}\n"
-            inp += self.xyz_content.strip() + "\n"
-            inp += "*\n"
         else:
+            single_kw, single_block = format_orca_method(self.method_combo.currentText())
             kws = []
             if task == "Single Point (SP)": task = "SP"
             kws.append(task)
-            kws.append(self.method_combo.currentText())
+            if single_kw:
+                kws.append(single_kw)
 
             basis = self.basis_combo.currentText()
             if "None" not in basis:
                 kws.append(basis.split()[0])
 
             disp = self.disp_combo.currentText()
-            if disp != "None":
+            if disp != "None" and not has_nmr and not bool(single_block):
                 kws.append(disp)
 
             custom = self.custom_kw_input.text().strip()
@@ -688,10 +793,25 @@ class OrcaSetupDialog(QDialog):
             if has_nmr and not nmr_block:
                 active_block = opt_block
 
+            should_use_json = False
+            if self.job_manager and getattr(self.job_manager, "orca_version", None):
+                try:
+                    parts = [int(p) for p in self.job_manager.orca_version.split(".")]
+                    if len(parts) >= 2 and (parts[0] > 6 or (parts[0] == 6 and parts[1] >= 1)):
+                        should_use_json = True
+                except:
+                    pass
+
+            json_prop_block = "%output\n  JSONPropFile true\nend\n" if should_use_json else ""
+
             inp = f"! {' '.join(kws)}\n"
             inp += f"%maxcore {self.mem_spin.value()}\n"
             if self.cores_spin.value() > 1:
                 inp += f"%pal\n  nprocs {self.cores_spin.value()}\nend\n"
+            if single_block:
+                inp += single_block
+            if json_prop_block:
+                inp += json_prop_block
             if active_block:
                 inp += active_block
             inp += f"\n* xyz {self.charge_spin.value()} {self.multi_spin.value()}\n"
@@ -887,7 +1007,7 @@ class TMSEditDialog(QDialog):
     def __init__(self, entry=None, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Edit TMS Reference Value" if entry else "Add New TMS Reference Value")
-        self.resize(450, 320)
+        self.resize(450, 420)
         self.entry = entry or {}
         
         layout = QVBoxLayout(self)
@@ -895,8 +1015,11 @@ class TMSEditDialog(QDialog):
         
         self.geom_method_input = QLineEdit(str(self.entry.get("geom_method", "-")))
         self.geom_basis_input = QLineEdit(str(self.entry.get("geom_basis", "-")))
+        self.geom_solvent_input = QLineEdit(str(self.entry.get("geom_solvent", "-")))
         self.method_input = QLineEdit(str(self.entry.get("method", "")))
         self.basis_input = QLineEdit(str(self.entry.get("basis", "")))
+        self.nmr_solvent_input = QLineEdit(str(self.entry.get("nmr_solvent", "-")))
+        self.solvent_model_input = QLineEdit(str(self.entry.get("solvent_model", "-")))
         
         h1 = self.entry.get("h1_shielding")
         self.h1_input = QLineEdit("" if h1 is None else str(h1))
@@ -908,8 +1031,11 @@ class TMSEditDialog(QDialog):
         
         form.addRow("Geometry Method:", self.geom_method_input)
         form.addRow("Geometry Basis Set:", self.geom_basis_input)
+        form.addRow("Geometry Solvent:", self.geom_solvent_input)
         form.addRow("NMR Method:", self.method_input)
         form.addRow("NMR Basis Set:", self.basis_input)
+        form.addRow("NMR Solvent:", self.nmr_solvent_input)
+        form.addRow("Solvent Model:", self.solvent_model_input)
         form.addRow("1H Shielding (ppm):", self.h1_input)
         form.addRow("13C Shielding (ppm):", self.c13_input)
         form.addRow("Source / Reference:", self.source_input)
@@ -939,8 +1065,11 @@ class TMSEditDialog(QDialog):
         return {
             "geom_method": self.geom_method_input.text().strip() or "-",
             "geom_basis": self.geom_basis_input.text().strip() or "-",
+            "geom_solvent": self.geom_solvent_input.text().strip() or "-",
             "method": self.method_input.text().strip() or "-",
             "basis": self.basis_input.text().strip() or "-",
+            "nmr_solvent": self.nmr_solvent_input.text().strip() or "-",
+            "solvent_model": self.solvent_model_input.text().strip() or "-",
             "h1_shielding": parse_float(self.h1_input.text()),
             "c13_shielding": parse_float(self.c13_input.text()),
             "source": self.source_input.text().strip() or "-"
@@ -949,41 +1078,56 @@ class TMSEditDialog(QDialog):
 
 class TMSReferenceDialog(QDialog):
     """Dialog displaying complete TMS reference table with filter and editing options."""
-    def __init__(self, workspace_dir=None, current_method=None, current_basis=None, parent=None):
+    def __init__(self, workspace_dir=None, current_method=None, current_basis=None, parent=None,
+                 geom_method=None, geom_basis=None, geom_solvent=None, nmr_solvent=None, solvent_model=None):
         super().__init__(parent)
         self.setWindowTitle("TMS Reference Shielding Constants")
-        self.resize(900, 520)
+        self.resize(1100, 520)
         self.workspace_dir = workspace_dir
         self.tms_list = load_tms_references(workspace_dir)
         self.selected_ref = None
         
+        self.current_method = current_method
+        self.current_basis = current_basis
+        self.geom_method = geom_method
+        self.geom_basis = geom_basis
+        self.geom_solvent = geom_solvent
+        self.nmr_solvent = nmr_solvent
+        self.solvent_model = solvent_model
+
         layout = QVBoxLayout(self)
         
         # Search & Filter
         filter_layout = QHBoxLayout()
         filter_layout.addWidget(QLabel("Search / Filter:"))
         self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("e.g. B3LYP, HF, 6-31G*, def2-TZVP...")
+        self.search_input.setPlaceholderText("e.g. B3LYP, HF, 6-31G*, Chloroform, CPCM...")
         self.search_input.textChanged.connect(self.populate_table)
         filter_layout.addWidget(self.search_input)
         
         if current_method or current_basis:
-            match = find_best_tms_match(current_method or "", current_basis or "", self.tms_list)
+            match = find_best_tms_match(
+                current_method or "", current_basis or "", 
+                geom_method=geom_method, geom_basis=geom_basis, 
+                tms_list=self.tms_list,
+                geom_solvent=geom_solvent, nmr_solvent=nmr_solvent, solvent_model=solvent_model
+            )
             if match:
                 h1_m = match.get('h1_shielding')
                 c13_m = match.get('c13_shielding')
                 h1_str = f"{h1_m:.4f}" if isinstance(h1_m, (int, float)) else "n/a"
                 c13_str = f"{c13_m:.4f}" if isinstance(c13_m, (int, float)) else "n/a"
-                info_lbl = QLabel(f"<b>Recommended ({current_method}/{current_basis}): 1H={h1_str}, 13C={c13_str}</b>")
+                info_lbl = QLabel(f"<b>Recommended: 1H={h1_str}, 13C={c13_str}</b>")
                 info_lbl.setStyleSheet("color: #4fc3f7; margin-left: 10px;")
                 filter_layout.addWidget(info_lbl)
                 
         layout.addLayout(filter_layout)
         
         # Table
-        self.table = QTableWidget(0, 7)
+        self.table = QTableWidget(0, 10)
         self.table.setHorizontalHeaderLabels([
-            "Geometry Method", "Geometry Basis Set", "NMR Method", "NMR Basis Set", 
+            "Geometry Method", "Geometry Basis Set", "Geometry Solvent",
+            "NMR Method", "NMR Basis Set", "NMR Solvent", "Solvent Model",
             "1H Shielding (ppm)", "13C Shielding (ppm)", "Source"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
@@ -1029,7 +1173,11 @@ class TMSReferenceDialog(QDialog):
         
         # Highlight match if current_method / current_basis provided
         if current_method or current_basis:
-            self.highlight_match(current_method, current_basis)
+            self.highlight_match(
+                current_method, current_basis, 
+                geom_method=geom_method, geom_basis=geom_basis, 
+                geom_solvent=geom_solvent, nmr_solvent=nmr_solvent, solvent_model=solvent_model
+            )
 
     def populate_table(self):
         filter_text = self.search_input.text().strip().lower()
@@ -1039,8 +1187,11 @@ class TMSReferenceDialog(QDialog):
             row_str = " ".join([
                 str(entry.get("geom_method", "")),
                 str(entry.get("geom_basis", "")),
+                str(entry.get("geom_solvent", "")),
                 str(entry.get("method", "")),
                 str(entry.get("basis", "")),
+                str(entry.get("nmr_solvent", "")),
+                str(entry.get("solvent_model", "")),
                 str(entry.get("source", ""))
             ]).lower()
             
@@ -1052,24 +1203,33 @@ class TMSReferenceDialog(QDialog):
             
             self.table.setItem(row, 0, QTableWidgetItem(str(entry.get("geom_method", "-"))))
             self.table.setItem(row, 1, QTableWidgetItem(str(entry.get("geom_basis", "-"))))
-            self.table.setItem(row, 2, QTableWidgetItem(str(entry.get("method", "-"))))
-            self.table.setItem(row, 3, QTableWidgetItem(str(entry.get("basis", "-"))))
+            self.table.setItem(row, 2, QTableWidgetItem(str(entry.get("geom_solvent", "-"))))
+            self.table.setItem(row, 3, QTableWidgetItem(str(entry.get("method", "-"))))
+            self.table.setItem(row, 4, QTableWidgetItem(str(entry.get("basis", "-"))))
+            self.table.setItem(row, 5, QTableWidgetItem(str(entry.get("nmr_solvent", "-"))))
+            self.table.setItem(row, 6, QTableWidgetItem(str(entry.get("solvent_model", "-"))))
             
             h1 = entry.get("h1_shielding")
             h1_str = f"{h1:.4f}" if isinstance(h1, (int, float)) else "n/a"
-            self.table.setItem(row, 4, QTableWidgetItem(h1_str))
+            self.table.setItem(row, 7, QTableWidgetItem(h1_str))
             
             c13 = entry.get("c13_shielding")
             c13_str = f"{c13:.4f}" if isinstance(c13, (int, float)) else "n/a"
-            self.table.setItem(row, 5, QTableWidgetItem(c13_str))
+            self.table.setItem(row, 8, QTableWidgetItem(c13_str))
             
-            self.table.setItem(row, 6, QTableWidgetItem(str(entry.get("source", "-"))))
+            self.table.setItem(row, 9, QTableWidgetItem(str(entry.get("source", "-"))))
             
             # Attach index into original tms_list as UserRole on item
             self.table.item(row, 0).setData(Qt.UserRole, idx)
 
-    def highlight_match(self, method, basis):
-        match = find_best_tms_match(method, basis, self.tms_list)
+    def highlight_match(self, method, basis, geom_method=None, geom_basis=None,
+                        geom_solvent=None, nmr_solvent=None, solvent_model=None):
+        match = find_best_tms_match(
+            method, basis, 
+            geom_method=geom_method, geom_basis=geom_basis, 
+            tms_list=self.tms_list,
+            geom_solvent=geom_solvent, nmr_solvent=nmr_solvent, solvent_model=solvent_model
+        )
         if not match:
             return
         try:
@@ -1078,7 +1238,6 @@ class TMSReferenceDialog(QDialog):
                 idx = self.table.item(r, 0).data(Qt.UserRole)
                 if idx == match_idx:
                     self.table.selectRow(r)
-                    break
         except ValueError:
             pass
 
@@ -1170,8 +1329,8 @@ class TantilloEditDialog(QDialog):
 
         solvent_model_val = self.entry.get("solvent_model") or ""
         self.solvent_model_combo = QComboBox()
-        self.solvent_model_combo.addItems(["", "SMD", "CPCM", "PCM"])
-        if solvent_model_val in ["", "SMD", "CPCM", "PCM"]:
+        self.solvent_model_combo.addItems(["", "SMD", "CPCM", "PCM", "SCRF"])
+        if solvent_model_val in ["", "SMD", "CPCM", "PCM", "SCRF"]:
             self.solvent_model_combo.setCurrentText(solvent_model_val)
 
         h1_s = self.entry.get("h1_slope")
@@ -1405,6 +1564,283 @@ class TantilloReferenceDialog(QDialog):
             self.populate_table()
 
 
+def calculate_symmetry_ranks(mol):
+    from collections import defaultdict as _defaultdict
+    from rdkit import Chem
+    from rdkit.Chem import AllChem
+
+    Chem.AssignStereochemistry(mol, cleanIt=True, force=True)
+    base_ranks = list(Chem.CanonicalRankAtoms(mol, breakTies=False, includeChirality=True))
+    num_at = mol.GetNumAtoms()
+
+    # 1. Find rotatable bonds (single, non-ring, between non-terminal heavy atoms)
+    rot_smarts = Chem.MolFromSmarts('[!D1]-&!@[!D1]')
+    rot_matches = mol.GetSubstructMatches(rot_smarts)
+    rot_bonds = [mol.GetBondBetweenAtoms(a, b).GetIdx() for a, b in rot_matches]
+
+    # 2. Cut molecule into rigid fragments
+    if rot_bonds:
+        frags_mol = Chem.FragmentOnBonds(mol, rot_bonds)
+    else:
+        frags_mol = Chem.Mol(mol)
+
+    frag_indices = Chem.GetMolFrags(frags_mol, asMols=False)
+    frags_mols   = Chem.GetMolFrags(frags_mol, asMols=True, sanitizeFrags=False)
+
+    # 3. Compute idealized 2D coords for each fragment
+    frag_confs = []
+    for frag in frags_mols:
+        try:
+            AllChem.Compute2DCoords(frag)
+            frag_confs.append(frag.GetConformer())
+        except Exception:
+            frag_confs.append(None)
+
+    # 4. Group atoms by topological base rank, then refine via fragment geometry
+    rank_groups = _defaultdict(list)
+    for i, r in enumerate(base_ranks):
+        rank_groups[r].append(i)
+
+    sym_ranks  = [-1] * num_at
+    next_rank  = 0
+
+    for r in sorted(rank_groups.keys()):
+        atoms = rank_groups[r]
+        if len(atoms) == 1:
+            sym_ranks[atoms[0]] = next_rank
+            next_rank += 1
+            continue
+
+        # Build distance-profile signature for each atom within its fragment
+        signatures = {}
+        for a_idx in atoms:
+            for f_idx, f_atoms in enumerate(frag_indices):
+                if a_idx in f_atoms:
+                    frag_mol   = frags_mols[f_idx]
+                    conf       = frag_confs[f_idx]
+                    local_idx  = f_atoms.index(a_idx)
+                    if conf is not None:
+                        pos   = conf.GetAtomPosition(local_idx)
+                        dists = tuple(sorted(
+                            round(pos.Distance(conf.GetAtomPosition(k)), 3)
+                            for k in range(frag_mol.GetNumAtoms())
+                        ))
+                        signatures[a_idx] = dists
+                    else:
+                        signatures[a_idx] = (0,)
+                    break
+
+        # Group by signature, assign ranks deterministically
+        sig_groups = _defaultdict(list)
+        for a_idx, sig in signatures.items():
+            sig_groups[sig].append(a_idx)
+
+        for sig in sorted(sig_groups.keys()):
+            for a_idx in sig_groups[sig]:
+                sym_ranks[a_idx] = next_rank
+            next_rank += 1
+            
+    return sym_ranks
+
+
+import glob
+import subprocess
+
+def parse_orbitals(out_file_path):
+    """Parses orbital energies from ORCA output file.
+    Returns:
+        orbitals: list of dicts with keys 'num', 'occ', 'energy_eh', 'energy_ev', 'is_homo', 'is_lumo'
+        homo_idx: int index of HOMO, or -1
+        lumo_idx: int index of LUMO, or -1
+    """
+    orbitals = []
+    homo_idx = -1
+    lumo_idx = -1
+    
+    if not os.path.exists(out_file_path):
+        return orbitals, homo_idx, lumo_idx
+        
+    try:
+        with open(out_file_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+    except Exception as e:
+        print("Error reading ORCA output for orbitals:", e)
+        return orbitals, homo_idx, lumo_idx
+        
+    # Find orbital energy block.
+    match = re.search(r"ORBITAL\s+ENERGIES\s*\n\s*-+\s*\n\s*NO\s+OCC", content, re.IGNORECASE)
+    if not match:
+        match = re.search(r"NO\s+OCC\s+E\(Eh\)\s+E\(eV\)", content, re.IGNORECASE)
+        
+    if match:
+        start_idx = match.end()
+        lines = content[start_idx:].splitlines()
+        for line in lines:
+            line = line.strip()
+            if not line:
+                if orbitals: # end of block
+                    break
+                continue
+            parts = line.split()
+            if len(parts) >= 4:
+                try:
+                    num = int(parts[0])
+                    occ = float(parts[1])
+                    energy_eh = float(parts[2])
+                    energy_ev = float(parts[3])
+                    orbitals.append({
+                        "num": num,
+                        "occ": occ,
+                        "energy_eh": energy_eh,
+                        "energy_ev": energy_ev,
+                        "is_homo": False,
+                        "is_lumo": False
+                    })
+                except ValueError:
+                    if orbitals:
+                        break
+                    
+    # Identify HOMO and LUMO
+    if orbitals:
+        last_occupied = -1
+        for i, orb in enumerate(orbitals):
+            if orb["occ"] > 0.05:
+                last_occupied = i
+        
+        if last_occupied != -1:
+            orbitals[last_occupied]["is_homo"] = True
+            homo_idx = orbitals[last_occupied]["num"]
+            
+            if last_occupied + 1 < len(orbitals):
+                orbitals[last_occupied + 1]["is_lumo"] = True
+                lumo_idx = orbitals[last_occupied + 1]["num"]
+                
+    return orbitals, homo_idx, lumo_idx
+
+
+def generate_orbital_cube(job_dir, orca_plot_exe, orbital_num):
+    """Runs orca_plot non-interactively to generate a cube file for the specified orbital."""
+    for f in glob.glob(os.path.join(job_dir, f"*mo{orbital_num}a*.cube")):
+        try: os.remove(f)
+        except: pass
+        
+    gbw_file = "orca_input.gbw"
+    if not os.path.exists(os.path.join(job_dir, gbw_file)):
+        return None, "orca_input.gbw not found in job directory."
+        
+    creationflags = 0
+    if sys.platform == "win32":
+        creationflags = subprocess.CREATE_NO_WINDOW
+        
+    try:
+        proc = subprocess.Popen(
+            [orca_plot_exe, gbw_file, "-i"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=job_dir,
+            text=True,
+            creationflags=creationflags
+        )
+        
+        # Parse menu options dynamically to support both ORCA 5 and ORCA 6
+        plot_option = None
+        exit_option = None
+        init_output = []
+        
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            init_output.append(line)
+            if "Generate the plot" in line:
+                parts = line.strip().split("-")
+                if parts:
+                    plot_option = parts[0].strip()
+            if "exit this program" in line or "Exit" in line:
+                parts = line.strip().split("-")
+                if parts:
+                    exit_option = parts[0].strip()
+            if plot_option and exit_option:
+                break
+                
+        if not plot_option: plot_option = "11"
+        if not exit_option: exit_option = "12"
+        
+        commands = f"1\n1\n2\n{orbital_num}\n3\n0\n4\n40\n5\n7\n{plot_option}\n{exit_option}\n"
+        stdout, stderr = proc.communicate(input=commands, timeout=30)
+        full_output = "".join(init_output) + (stdout or "") + (stderr or "")
+    except Exception as e:
+        print("Failed running orca_plot for orbital:", e)
+        return None, str(e)
+        
+    matching_files = glob.glob(os.path.join(job_dir, f"*mo{orbital_num}a*.cube"))
+    if matching_files:
+        return matching_files[0], ""
+    return None, full_output
+
+
+def generate_density_cube(job_dir, orca_plot_exe):
+    """Runs orca_plot non-interactively to generate a cube file for electron density."""
+    for f in glob.glob(os.path.join(job_dir, "*dens*.cube")):
+        try: os.remove(f)
+        except: pass
+        
+    gbw_file = "orca_input.gbw"
+    if not os.path.exists(os.path.join(job_dir, gbw_file)):
+        return None, "orca_input.gbw not found in job directory."
+        
+    creationflags = 0
+    if sys.platform == "win32":
+        creationflags = subprocess.CREATE_NO_WINDOW
+        
+    try:
+        proc = subprocess.Popen(
+            [orca_plot_exe, gbw_file, "-i"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            cwd=job_dir,
+            text=True,
+            creationflags=creationflags
+        )
+        
+        plot_option = None
+        exit_option = None
+        init_output = []
+        
+        while True:
+            line = proc.stdout.readline()
+            if not line:
+                break
+            init_output.append(line)
+            if "Generate the plot" in line:
+                parts = line.strip().split("-")
+                if parts:
+                    plot_option = parts[0].strip()
+            if "exit this program" in line or "Exit" in line:
+                parts = line.strip().split("-")
+                if parts:
+                    exit_option = parts[0].strip()
+            if plot_option and exit_option:
+                break
+                
+        if not plot_option: plot_option = "11"
+        if not exit_option: exit_option = "12"
+        
+        commands = f"1\n2\nn\n4\n40\n5\n7\n{plot_option}\n{exit_option}\n"
+        stdout, stderr = proc.communicate(input=commands, timeout=30)
+        full_output = "".join(init_output) + (stdout or "") + (stderr or "")
+    except Exception as e:
+        print("Failed running orca_plot for density:", e)
+        return None, str(e)
+        
+    matching_files = glob.glob(os.path.join(job_dir, "*dens*.cube"))
+    if matching_files:
+        return matching_files[0], ""
+    return None, full_output
+
+
 class OrcaResultsDialog(QDialog):
 
 
@@ -1424,10 +1860,10 @@ class OrcaResultsDialog(QDialog):
 
         self.job_id = job_id
         self.job_manager = job_manager
-        self.app_instance = app_instance # Reference to MolViewer3D to apply changes
+        self.app_instance = app_instance
         self.results = self.job_manager.parse_results(job_id)
 
-        # Load job metadata to see functional and basis
+        # Load job metadata first (required for charge etc.)
         self.job_meta = {}
         job_dir = self.job_manager.get_job_dir(job_id)
         meta_file = os.path.join(job_dir, "job_meta.json")
@@ -1437,6 +1873,29 @@ class OrcaResultsDialog(QDialog):
                     self.job_meta = json.load(f)
             except:
                 pass
+
+        # Compute symmetry ranks
+        self.sym_ranks = None
+        xyz_content = self.results.get("optimized_xyz")
+        if xyz_content:
+            try:
+                from rdkit import Chem
+                from rdkit.Chem import rdDetermineBonds
+                mol = Chem.MolFromXYZBlock(xyz_content)
+                if mol:
+                    charge = self.job_meta.get("charge", 0)
+                    try:
+                        rdDetermineBonds.DetermineBonds(mol, charge=charge)
+                    except Exception as ex:
+                        print("Symmetry ranking DetermineBonds error:", ex)
+                    ranks_list = calculate_symmetry_ranks(mol)
+                    if ranks_list:
+                        self.sym_ranks = {i: r for i, r in enumerate(ranks_list)}
+            except Exception as e:
+                print("Symmetry ranking calculation error:", e)
+        
+        if not self.sym_ranks and self.results.get("nmr_shieldings"):
+            self.sym_ranks = {idx: idx for idx in self.results["nmr_shieldings"].keys()}
 
         layout = QVBoxLayout(self)
 
@@ -1487,7 +1946,17 @@ class OrcaResultsDialog(QDialog):
         h_refs_std.addWidget(self.btn_tms_db)
 
         # Quick match check for TMS
-        matched_tms = find_best_tms_match(method, basis, load_tms_references(workspace_dir))
+        geom_method = self.job_meta.get("geom_method")
+        geom_basis = self.job_meta.get("geom_basis")
+        geom_solvent = self.job_meta.get("opt_solvent")
+        nmr_solvent = self.job_meta.get("nmr_solvent")
+        solvent_model = self.job_meta.get("nmr_solvent_model")
+        matched_tms = find_best_tms_match(
+            method, basis,
+            geom_method=geom_method, geom_basis=geom_basis,
+            tms_list=load_tms_references(workspace_dir),
+            geom_solvent=geom_solvent, nmr_solvent=nmr_solvent, solvent_model=solvent_model
+        )
         if matched_tms:
             h1 = matched_tms.get("h1_shielding")
             c13 = matched_tms.get("c13_shielding")
@@ -1504,15 +1973,20 @@ class OrcaResultsDialog(QDialog):
         h_refs_std.addStretch()
         std_layout.addLayout(h_refs_std)
 
-        self.nmr_std_table = QTableWidget(0, 4)
-        self.nmr_std_table.setHorizontalHeaderLabels(["Atom", "Element", "Shielding (\u03c3, ppm)", "Standard Shift (\u03b4, ppm)"])
+        self.nmr_std_table = QTableWidget(0, 5)
+        self.nmr_std_table.setHorizontalHeaderLabels(["Atom", "Element", "Shielding (\u03c3, ppm)", "Standard Shift (\u03b4, ppm)", "Symmetry Avg. Shift (\u03b4, ppm)"])
         self.nmr_std_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.nmr_std_table.itemSelectionChanged.connect(self.on_std_table_selection_changed)
         std_layout.addWidget(self.nmr_std_table)
 
         std_btn_layout = QHBoxLayout()
         self.apply_std_nmr_btn = QPushButton("Apply Standard NMR Shifts as 3D Labels")
         self.apply_std_nmr_btn.clicked.connect(self.apply_standard_nmr_labels)
         std_btn_layout.addWidget(self.apply_std_nmr_btn)
+        self.apply_std_avg_nmr_btn = QPushButton("Apply Symmetry Avg. Shifts as 3D Labels")
+        self.apply_std_avg_nmr_btn.clicked.connect(self.apply_standard_avg_nmr_labels)
+        self.apply_std_avg_nmr_btn.setStyleSheet("background-color: #2e7d32; color: white;")
+        std_btn_layout.addWidget(self.apply_std_avg_nmr_btn)
         std_btn_layout.addStretch()
         std_layout.addLayout(std_btn_layout)
 
@@ -1604,15 +2078,20 @@ class OrcaResultsDialog(QDialog):
         h_tantillo_inputs.addStretch()
         tantillo_layout.addLayout(h_tantillo_inputs)
 
-        self.nmr_tantillo_table = QTableWidget(0, 4)
-        self.nmr_tantillo_table.setHorizontalHeaderLabels(["Atom", "Element", "Shielding (\u03c3, ppm)", "Tantillo Shift (\u03b4, ppm)"])
+        self.nmr_tantillo_table = QTableWidget(0, 5)
+        self.nmr_tantillo_table.setHorizontalHeaderLabels(["Atom", "Element", "Shielding (\u03c3, ppm)", "Tantillo Shift (\u03b4, ppm)", "Symmetry Avg. Shift (\u03b4, ppm)"])
         self.nmr_tantillo_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.nmr_tantillo_table.itemSelectionChanged.connect(self.on_tantillo_table_selection_changed)
         tantillo_layout.addWidget(self.nmr_tantillo_table)
 
         tan_btn_layout = QHBoxLayout()
         self.apply_tantillo_nmr_btn = QPushButton("Apply Tantillo NMR Shifts as 3D Labels")
         self.apply_tantillo_nmr_btn.clicked.connect(self.apply_tantillo_nmr_labels)
         tan_btn_layout.addWidget(self.apply_tantillo_nmr_btn)
+        self.apply_tan_avg_nmr_btn = QPushButton("Apply Symmetry Avg. Shifts as 3D Labels")
+        self.apply_tan_avg_nmr_btn.clicked.connect(self.apply_tantillo_avg_nmr_labels)
+        self.apply_tan_avg_nmr_btn.setStyleSheet("background-color: #2e7d32; color: white;")
+        tan_btn_layout.addWidget(self.apply_tan_avg_nmr_btn)
         tan_btn_layout.addStretch()
         tantillo_layout.addLayout(tan_btn_layout)
 
@@ -1636,13 +2115,14 @@ class OrcaResultsDialog(QDialog):
 
             nmr_sp_ctrl.addWidget(QLabel("Method:"))
             self.nmr_meth_combo = QComboBox()
-            self.nmr_meth_combo.addItems(["Standard TMS", "Tantillo Scaled"])
+            self.nmr_meth_combo.addItems(["Standard TMS", "Standard TMS (Symmetry Avg.)", "Tantillo Scaled", "Tantillo Scaled (Symmetry Avg.)"])
             nmr_sp_ctrl.addWidget(self.nmr_meth_combo)
 
             nmr_sp_ctrl.addStretch()
             nmr_sp_layout.addLayout(nmr_sp_ctrl)
 
             self.nmr_spec_plot = NmrSpectrumPlotWidget()
+            self.nmr_spec_plot.atomClicked.connect(self.on_nmr_peak_clicked)
             nmr_sp_layout.addWidget(self.nmr_spec_plot)
 
             self.nmr_nuc_combo.currentTextChanged.connect(self.update_nmr_spectrum_plot)
@@ -1761,6 +2241,52 @@ class OrcaResultsDialog(QDialog):
         self.thermo_card.setLayout(st_form2)
         st_layout.addWidget(self.thermo_card)
         st_layout.addStretch()
+
+        # Tab: Molecular Orbitals
+        gbw_path = os.path.join(job_dir, "orca_input.gbw")
+        if os.path.exists(gbw_path):
+            self.orbitals_tab = QWidget()
+            orb_layout = QVBoxLayout(self.orbitals_tab)
+            
+            ctrl_layout = QHBoxLayout()
+            ctrl_layout.addWidget(QLabel("Iso-Wert (Contour):"))
+            self.orb_isoval_spin = QDoubleSpinBox()
+            self.orb_isoval_spin.setRange(0.001, 0.5)
+            self.orb_isoval_spin.setValue(0.02)
+            self.orb_isoval_spin.setDecimals(3)
+            self.orb_isoval_spin.setSingleStep(0.005)
+            self.orb_isoval_spin.setFixedWidth(80)
+            ctrl_layout.addWidget(self.orb_isoval_spin)
+            
+            self.visualize_orb_btn = QPushButton("Orbital visualisieren")
+            self.visualize_orb_btn.clicked.connect(self.visualize_selected_orbital)
+            ctrl_layout.addWidget(self.visualize_orb_btn)
+            
+            self.visualize_dens_btn = QPushButton("Elektronendichte visualisieren")
+            self.visualize_dens_btn.clicked.connect(self.visualize_density)
+            ctrl_layout.addWidget(self.visualize_dens_btn)
+            
+            self.clear_orb_btn = QPushButton("Visualisierung zurücksetzen")
+            self.clear_orb_btn.clicked.connect(self.clear_orbital_visualization)
+            self.clear_orb_btn.setStyleSheet("background-color: #c42b1c;")
+            ctrl_layout.addWidget(self.clear_orb_btn)
+            
+            ctrl_layout.addStretch()
+            orb_layout.addLayout(ctrl_layout)
+            
+            self.orbitals_table = QTableWidget(0, 4)
+            self.orbitals_table.setHorizontalHeaderLabels(["Orbital", "Besetzung (OCC)", "Energie (eV)", "Typ (HOMO/LUMO)"])
+            self.orbitals_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+            self.orbitals_table.setSelectionBehavior(QTableWidget.SelectRows)
+            self.orbitals_table.setSelectionMode(QTableWidget.SingleSelection)
+            orb_layout.addWidget(self.orbitals_table)
+            
+            self.tabs.addTab(self.orbitals_tab, "Molecular Orbitals")
+            
+            out_file = os.path.join(job_dir, "orca_output.out")
+            self.parsed_orbitals, self.homo_idx, self.lumo_idx = parse_orbitals(out_file)
+            self.fill_orbitals_table()
+
         self.tabs.addTab(self.short_tab, "Short Results")
 
 
@@ -1807,8 +2333,6 @@ class OrcaResultsDialog(QDialog):
                     self.app_instance.set_method_badge(f"ORCA: {func}{b_str} (Step {step_idx + 1})")
                     self.app_instance.statusBar().showMessage(f"Preview: Geometry from optimization step {step_idx + 1}")
             except Exception as e:
-
-
                 print("Could not update viewer for step:", e)
 
     def update_nmr_spectrum_plot(self):
@@ -1819,8 +2343,9 @@ class OrcaResultsDialog(QDialog):
 
         shieldings = self.results.get("nmr_shieldings", {})
         shifts = []
+        computed_shifts = {}
 
-        if method_type == "Standard TMS":
+        if "Standard TMS" in method_type:
             try: ref_1h = float(self.ref_1h_input.text().replace(',', '.'))
             except: ref_1h = DEFAULT_NMR_REFS["1H"]
             try: ref_13c = float(self.ref_13c_input.text().replace(',', '.'))
@@ -1829,9 +2354,7 @@ class OrcaResultsDialog(QDialog):
             for idx, info in shieldings.items():
                 elem = info["element"]
                 ref_val = ref_1h if elem == "H" else (ref_13c if elem == "C" else DEFAULT_NMR_REFS.get(f"1{elem}", 0.0))
-                s_val = ref_val - info["shielding"]
-                shifts.append({"atom": f"{elem}{idx}", "elem": elem, "shift": s_val})
-
+                computed_shifts[idx] = ref_val - info["shielding"]
         else: # Tantillo Scaled
             try: h1_s = float(self.tantillo_1h_slope_input.text().replace(',', '.'))
             except: h1_s = None
@@ -1844,23 +2367,64 @@ class OrcaResultsDialog(QDialog):
 
             for idx, info in shieldings.items():
                 elem = info["element"]
-                s_val = None
+                val = None
                 if elem == "H" and h1_s is not None and h1_i is not None and h1_s != 0:
-                    s_val = (info["shielding"] - h1_i) / h1_s
+                    val = (info["shielding"] - h1_i) / h1_s
                 elif elem == "C" and c13_s is not None and c13_i is not None and c13_s != 0:
-                    s_val = (info["shielding"] - c13_i) / c13_s
+                    val = (info["shielding"] - c13_i) / c13_s
+                if val is not None:
+                    computed_shifts[idx] = val
 
-                if s_val is not None:
-                    shifts.append({"atom": f"{elem}{idx}", "elem": elem, "shift": s_val})
+        # Check if we should apply symmetry averaging
+        if "Symmetry Avg." in method_type:
+            rank_to_vals = {}
+            if self.sym_ranks:
+                for idx, val in computed_shifts.items():
+                    rank = self.sym_ranks.get(idx)
+                    if rank is not None:
+                        if rank not in rank_to_vals:
+                            rank_to_vals[rank] = []
+                        rank_to_vals[rank].append(val)
+            
+            rank_to_avg = {}
+            for rank, vals in rank_to_vals.items():
+                rank_to_avg[rank] = sum(vals) / len(vals)
+
+            for idx, info in shieldings.items():
+                if idx in computed_shifts:
+                    elem = info["element"]
+                    rank = self.sym_ranks.get(idx) if self.sym_ranks else None
+                    val = rank_to_avg.get(rank, computed_shifts[idx]) if rank is not None else computed_shifts[idx]
+                    shifts.append({"atom": f"{elem}{idx}", "elem": elem, "shift": val})
+        else:
+            for idx, info in shieldings.items():
+                if idx in computed_shifts:
+                    elem = info["element"]
+                    shifts.append({"atom": f"{elem}{idx}", "elem": elem, "shift": computed_shifts[idx]})
 
         self.nmr_spec_plot.set_data(shifts, nucleus=nucleus)
 
     def open_tms_db_dialog(self):
-
         method = self.job_meta.get("functional") or self.job_meta.get("method", "")
         basis = self.job_meta.get("basis", "")
+        geom_method = self.job_meta.get("geom_method")
+        geom_basis = self.job_meta.get("geom_basis")
+        geom_solvent = self.job_meta.get("opt_solvent")
+        nmr_solvent = self.job_meta.get("nmr_solvent")
+        solvent_model = self.job_meta.get("nmr_solvent_model")
         workspace_dir = self.job_manager.workspace_dir if hasattr(self.job_manager, 'workspace_dir') else None
-        dlg = TMSReferenceDialog(workspace_dir=workspace_dir, current_method=method, current_basis=basis, parent=self)
+        
+        dlg = TMSReferenceDialog(
+            workspace_dir=workspace_dir,
+            current_method=method,
+            current_basis=basis,
+            parent=self,
+            geom_method=geom_method,
+            geom_basis=geom_basis,
+            geom_solvent=geom_solvent,
+            nmr_solvent=nmr_solvent,
+            solvent_model=solvent_model
+        )
         if dlg.exec_() == QDialog.Accepted and dlg.selected_ref:
             h1_val, c13_val = dlg.selected_ref
             self._quick_apply_tms(h1_val, c13_val)
@@ -1908,13 +2472,9 @@ class OrcaResultsDialog(QDialog):
         except:
             ref_13c = DEFAULT_NMR_REFS["13C"]
 
-        for idx, info in sorted(shieldings.items()):
-            row = self.nmr_std_table.rowCount()
-            self.nmr_std_table.insertRow(row)
-            self.nmr_std_table.setItem(row, 0, QTableWidgetItem(f"Atom {idx}"))
-            self.nmr_std_table.setItem(row, 1, QTableWidgetItem(info["element"]))
-            self.nmr_std_table.setItem(row, 2, QTableWidgetItem(f"{info['shielding']:.4f}"))
-            
+        # Compute standard shifts
+        computed_shifts = {}
+        for idx, info in shieldings.items():
             elem = info["element"]
             ref_val = 0.0
             if elem == "H":
@@ -1923,9 +2483,36 @@ class OrcaResultsDialog(QDialog):
                 ref_val = ref_13c
             else:
                 ref_val = DEFAULT_NMR_REFS.get(f"1{elem}", 0.0)
-                
-            shift = ref_val - info["shielding"]
+            computed_shifts[idx] = ref_val - info["shielding"]
+
+        # Symmetry averaging
+        rank_to_vals = {}
+        if self.sym_ranks:
+            for idx, val in computed_shifts.items():
+                rank = self.sym_ranks.get(idx)
+                if rank is not None:
+                    if rank not in rank_to_vals:
+                        rank_to_vals[rank] = []
+                    rank_to_vals[rank].append(val)
+        
+        rank_to_avg = {}
+        for rank, vals in rank_to_vals.items():
+            rank_to_avg[rank] = sum(vals) / len(vals)
+
+        for idx, info in sorted(shieldings.items()):
+            row = self.nmr_std_table.rowCount()
+            self.nmr_std_table.insertRow(row)
+            self.nmr_std_table.setItem(row, 0, QTableWidgetItem(f"Atom {idx}"))
+            self.nmr_std_table.setItem(row, 1, QTableWidgetItem(info["element"]))
+            self.nmr_std_table.setItem(row, 2, QTableWidgetItem(f"{info['shielding']:.4f}"))
+            
+            shift = computed_shifts[idx]
             self.nmr_std_table.setItem(row, 3, QTableWidgetItem(f"{shift:.2f}"))
+            
+            rank = self.sym_ranks.get(idx) if self.sym_ranks else None
+            avg_shift = rank_to_avg.get(rank, shift) if rank is not None else shift
+            self.nmr_std_table.setItem(row, 4, QTableWidgetItem(f"{avg_shift:.2f}"))
+            
         self.update_nmr_spectrum_plot()
 
     def update_tantillo_nmr_table(self):
@@ -1943,6 +2530,32 @@ class OrcaResultsDialog(QDialog):
         try: c13_i = float(self.tantillo_13c_intercept_input.text().replace(',', '.'))
         except: c13_i = None
 
+        # Compute individual Tantillo shifts
+        computed_shifts = {}
+        for idx, info in shieldings.items():
+            elem = info["element"]
+            val = None
+            if elem == "H" and h1_s is not None and h1_i is not None and h1_s != 0:
+                val = (info["shielding"] - h1_i) / h1_s
+            elif elem == "C" and c13_s is not None and c13_i is not None and c13_s != 0:
+                val = (info["shielding"] - c13_i) / c13_s
+            if val is not None:
+                computed_shifts[idx] = val
+
+        # Symmetry averaging
+        rank_to_vals = {}
+        if self.sym_ranks:
+            for idx, val in computed_shifts.items():
+                rank = self.sym_ranks.get(idx)
+                if rank is not None:
+                    if rank not in rank_to_vals:
+                        rank_to_vals[rank] = []
+                    rank_to_vals[rank].append(val)
+        
+        rank_to_avg = {}
+        for rank, vals in rank_to_vals.items():
+            rank_to_avg[rank] = sum(vals) / len(vals)
+
         for idx, info in sorted(shieldings.items()):
             row = self.nmr_tantillo_table.rowCount()
             self.nmr_tantillo_table.insertRow(row)
@@ -1950,16 +2563,19 @@ class OrcaResultsDialog(QDialog):
             self.nmr_tantillo_table.setItem(row, 1, QTableWidgetItem(info["element"]))
             self.nmr_tantillo_table.setItem(row, 2, QTableWidgetItem(f"{info['shielding']:.4f}"))
             
-            elem = info["element"]
             tantillo_val = "--"
-            if elem == "H" and h1_s is not None and h1_i is not None and h1_s != 0:
-                calc = (info["shielding"] - h1_i) / h1_s
-                tantillo_val = f"{calc:.2f}"
-            elif elem == "C" and c13_s is not None and c13_i is not None and c13_s != 0:
-                calc = (info["shielding"] - c13_i) / c13_s
-                tantillo_val = f"{calc:.2f}"
+            avg_val = "--"
+            if idx in computed_shifts:
+                val = computed_shifts[idx]
+                tantillo_val = f"{val:.2f}"
+                rank = self.sym_ranks.get(idx) if self.sym_ranks else None
+                if rank in rank_to_avg:
+                    avg_val = f"{rank_to_avg[rank]:.2f}"
+                else:
+                    avg_val = tantillo_val
 
             self.nmr_tantillo_table.setItem(row, 3, QTableWidgetItem(tantillo_val))
+            self.nmr_tantillo_table.setItem(row, 4, QTableWidgetItem(avg_val))
         self.update_nmr_spectrum_plot()
 
 
@@ -2072,6 +2688,51 @@ class OrcaResultsDialog(QDialog):
 
         self._show_3d_labels(labels, color='#107c41', title="Standard TMS NMR shifts")
 
+    def apply_standard_avg_nmr_labels(self):
+        """Builds Symmetry Averaged Standard NMR chemical shift labels list and displays them in 3Dmol viewer."""
+        labels = {}
+        shieldings = self.results.get("nmr_shieldings", {})
+        if not shieldings:
+            QMessageBox.warning(self, "No NMR data", "No chemical shielding data found to apply.")
+            return
+
+        try:
+            ref_1h = float(self.ref_1h_input.text().replace(',', '.'))
+        except:
+            ref_1h = DEFAULT_NMR_REFS["1H"]
+        try:
+            ref_13c = float(self.ref_13c_input.text().replace(',', '.'))
+        except:
+            ref_13c = DEFAULT_NMR_REFS["13C"]
+
+        computed_shifts = {}
+        for idx, info in shieldings.items():
+            elem = info["element"]
+            ref_val = ref_1h if elem == "H" else (ref_13c if elem == "C" else DEFAULT_NMR_REFS.get(f"1{elem}", 0.0))
+            computed_shifts[idx] = ref_val - info["shielding"]
+
+        rank_to_vals = {}
+        if self.sym_ranks:
+            for idx, val in computed_shifts.items():
+                rank = self.sym_ranks.get(idx)
+                if rank is not None:
+                    if rank not in rank_to_vals:
+                        rank_to_vals[rank] = []
+                    rank_to_vals[rank].append(val)
+        
+        rank_to_avg = {}
+        for rank, vals in rank_to_vals.items():
+            rank_to_avg[rank] = sum(vals) / len(vals)
+
+        for idx, info in shieldings.items():
+            elem = info["element"]
+            shift = computed_shifts[idx]
+            rank = self.sym_ranks.get(idx) if self.sym_ranks else None
+            avg_shift = rank_to_avg.get(rank, shift) if rank is not None else shift
+            labels[idx] = f"{elem}{idx}: {avg_shift:.2f} ppm"
+
+        self._show_3d_labels(labels, color='#2e7d32', title="Standard TMS NMR shifts (Symmetry Avg.)")
+
     def apply_tantillo_nmr_labels(self):
         """Builds Tantillo NMR chemical shift labels list and displays them in 3Dmol viewer."""
         labels = {}
@@ -2104,6 +2765,63 @@ class OrcaResultsDialog(QDialog):
 
         self._show_3d_labels(labels, color='#0078D4', title="Tantillo NMR shifts")
 
+    def apply_tantillo_avg_nmr_labels(self):
+        """Builds Symmetry Averaged Tantillo NMR chemical shift labels list and displays them in 3Dmol viewer."""
+        labels = {}
+        shieldings = self.results.get("nmr_shieldings", {})
+        if not shieldings:
+            QMessageBox.warning(self, "No NMR data", "No chemical shielding data found to apply.")
+            return
+
+        try: h1_s = float(self.tantillo_1h_slope_input.text().replace(',', '.'))
+        except: h1_s = None
+        try: h1_i = float(self.tantillo_1h_intercept_input.text().replace(',', '.'))
+        except: h1_i = None
+        try: c13_s = float(self.tantillo_13c_slope_input.text().replace(',', '.'))
+        except: c13_s = None
+        try: c13_i = float(self.tantillo_13c_intercept_input.text().replace(',', '.'))
+        except: c13_i = None
+
+        computed_shifts = {}
+        for idx, info in shieldings.items():
+            elem = info["element"]
+            val = None
+            if elem == "H" and h1_s is not None and h1_i is not None and h1_s != 0:
+                val = (info["shielding"] - h1_i) / h1_s
+            elif elem == "C" and c13_s is not None and c13_i is not None and c13_s != 0:
+                val = (info["shielding"] - c13_i) / c13_s
+            if val is not None:
+                computed_shifts[idx] = val
+
+        rank_to_vals = {}
+        if self.sym_ranks:
+            for idx, val in computed_shifts.items():
+                rank = self.sym_ranks.get(idx)
+                if rank is not None:
+                    if rank not in rank_to_vals:
+                        rank_to_vals[rank] = []
+                    rank_to_vals[rank].append(val)
+        
+        rank_to_avg = {}
+        for rank, vals in rank_to_vals.items():
+            rank_to_avg[rank] = sum(vals) / len(vals)
+
+        for idx, info in shieldings.items():
+            elem = info["element"]
+            avg_val = "--"
+            if idx in computed_shifts:
+                val = computed_shifts[idx]
+                rank = self.sym_ranks.get(idx) if self.sym_ranks else None
+                if rank in rank_to_avg:
+                    avg_val = f"{rank_to_avg[rank]:.2f} ppm"
+                else:
+                    avg_val = f"{val:.2f} ppm"
+            else:
+                avg_val = "--"
+            labels[idx] = f"{elem}{idx}: {avg_val}"
+
+        self._show_3d_labels(labels, color='#2e7d32', title="Tantillo NMR shifts (Symmetry Avg.)")
+
     def _show_3d_labels(self, labels, color='#107c41', title="NMR shifts"):
         js_code = f"""
             viewer.removeAllLabels();
@@ -2127,6 +2845,287 @@ class OrcaResultsDialog(QDialog):
         self.app_instance.web_view.page().runJavaScript(js_code)
         QMessageBox.information(self, "Success", f"{title} applied to 3D viewer.")
 
+    def on_nmr_peak_clicked(self, atom_name):
+        try:
+            import re
+            idx_str = re.findall(r'\d+', atom_name)
+            if not idx_str:
+                return
+            idx = int(idx_str[0])
+            
+            # Highlight in 3D viewer
+            js = f"highlightAtom({idx});"
+            self.app_instance.web_view.page().runJavaScript(js)
+            
+            # Highlight standard table
+            self.nmr_std_table.blockSignals(True)
+            for r in range(self.nmr_std_table.rowCount()):
+                item = self.nmr_std_table.item(r, 0)
+                if item and item.text() == f"Atom {idx}":
+                    self.nmr_std_table.setCurrentCell(r, 0)
+                    self.nmr_std_table.selectRow(r)
+                    break
+            self.nmr_std_table.blockSignals(False)
+            
+            # Highlight tantillo table
+            self.nmr_tantillo_table.blockSignals(True)
+            for r in range(self.nmr_tantillo_table.rowCount()):
+                item = self.nmr_tantillo_table.item(r, 0)
+                if item and item.text() == f"Atom {idx}":
+                    self.nmr_tantillo_table.setCurrentCell(r, 0)
+                    self.nmr_tantillo_table.selectRow(r)
+                    break
+            self.nmr_tantillo_table.blockSignals(False)
+        except Exception as e:
+            print("Error handling NMR peak click:", e)
+
+    def highlight_atom_from_viewer(self, atom_idx):
+        if not hasattr(self, 'nmr_spec_plot'):
+            return
+        
+        nucleus = self.nmr_nuc_combo.currentText() if hasattr(self, 'nmr_nuc_combo') else "1H"
+        shieldings = self.results.get("nmr_shieldings", {})
+        info = shieldings.get(str(atom_idx))
+        if not info:
+            return
+            
+        elem = info["element"]
+        atom_name = f"{elem}{atom_idx}"
+        expected_elem = "H" if nucleus == "1H" else "C"
+        
+        if elem == expected_elem:
+            self.nmr_spec_plot.highlight_atom(atom_name)
+            
+        # Highlight standard table
+        self.nmr_std_table.blockSignals(True)
+        for r in range(self.nmr_std_table.rowCount()):
+            item = self.nmr_std_table.item(r, 0)
+            if item and item.text() == f"Atom {atom_idx}":
+                self.nmr_std_table.setCurrentCell(r, 0)
+                self.nmr_std_table.selectRow(r)
+                break
+        self.nmr_std_table.blockSignals(False)
+        
+        # Highlight tantillo table
+        self.nmr_tantillo_table.blockSignals(True)
+        for r in range(self.nmr_tantillo_table.rowCount()):
+            item = self.nmr_tantillo_table.item(r, 0)
+            if item and item.text() == f"Atom {atom_idx}":
+                self.nmr_tantillo_table.setCurrentCell(r, 0)
+                self.nmr_tantillo_table.selectRow(r)
+                break
+        self.nmr_tantillo_table.blockSignals(False)
+
+    def on_std_table_selection_changed(self):
+        selected_rows = self.nmr_std_table.selectedItems()
+        if not selected_rows:
+            return
+        row = selected_rows[0].row()
+        item = self.nmr_std_table.item(row, 0)
+        if item:
+            try:
+                import re
+                idx_str = re.findall(r'\d+', item.text())
+                if not idx_str:
+                    return
+                atom_idx = int(idx_str[0])
+                
+                # Highlight in 3D viewer
+                js = f"highlightAtom({atom_idx});"
+                self.app_instance.web_view.page().runJavaScript(js)
+                
+                # Highlight in plot widget
+                shieldings = self.results.get("nmr_shieldings", {})
+                info = shieldings.get(str(atom_idx))
+                if info:
+                    self.nmr_spec_plot.highlight_atom(f"{info['element']}{atom_idx}")
+            except Exception as e:
+                print("Error from standard table selection change:", e)
+
+    def on_tantillo_table_selection_changed(self):
+        selected_rows = self.nmr_tantillo_table.selectedItems()
+        if not selected_rows:
+            return
+        row = selected_rows[0].row()
+        item = self.nmr_tantillo_table.item(row, 0)
+        if item:
+            try:
+                import re
+                idx_str = re.findall(r'\d+', item.text())
+                if not idx_str:
+                    return
+                atom_idx = int(idx_str[0])
+                
+                # Highlight in 3D viewer
+                js = f"highlightAtom({atom_idx});"
+                self.app_instance.web_view.page().runJavaScript(js)
+                
+                # Highlight in plot widget
+                shieldings = self.results.get("nmr_shieldings", {})
+                info = shieldings.get(str(atom_idx))
+                if info:
+                    self.nmr_spec_plot.highlight_atom(f"{info['element']}{atom_idx}")
+            except Exception as e:
+                print("Error from tantillo table selection change:", e)
+
+    def fill_orbitals_table(self):
+        self.orbitals_table.setRowCount(0)
+        if not hasattr(self, 'parsed_orbitals') or not self.parsed_orbitals:
+            return
+            
+        self.orbitals_table.setRowCount(len(self.parsed_orbitals))
+        homo_row = -1
+        
+        for row, orb in enumerate(self.parsed_orbitals):
+            item_num = QTableWidgetItem(str(orb["num"]))
+            item_num.setTextAlignment(Qt.AlignCenter)
+            self.orbitals_table.setItem(row, 0, item_num)
+            
+            item_occ = QTableWidgetItem(f"{orb['occ']:.4f}")
+            item_occ.setTextAlignment(Qt.AlignCenter)
+            self.orbitals_table.setItem(row, 1, item_occ)
+            
+            item_ev = QTableWidgetItem(f"{orb['energy_ev']:.4f}")
+            item_ev.setTextAlignment(Qt.AlignCenter)
+            self.orbitals_table.setItem(row, 2, item_ev)
+            
+            type_str = ""
+            if orb["is_homo"]:
+                type_str = "HOMO"
+                homo_row = row
+            elif orb["is_lumo"]:
+                type_str = "LUMO"
+            
+            item_type = QTableWidgetItem(type_str)
+            item_type.setTextAlignment(Qt.AlignCenter)
+            if type_str:
+                font = item_type.font()
+                font.setBold(True)
+                item_type.setFont(font)
+                if type_str == "HOMO":
+                    item_type.setForeground(QColor("#00c853"))
+                else:
+                    item_type.setForeground(QColor("#d50000"))
+            self.orbitals_table.setItem(row, 3, item_type)
+            
+        if homo_row != -1:
+            self.orbitals_table.selectRow(homo_row)
+
+    def _resolve_orca_plot(self):
+        import shutil
+        # 1. Try to find orca_plot directly in PATH
+        resolved = shutil.which("orca_plot")
+        if resolved:
+            return os.path.abspath(resolved)
+            
+        # 2. Try to find it in the same directory as orca
+        orca_path = shutil.which("orca")
+        if orca_path:
+            orca_dir = os.path.dirname(orca_path)
+            for name in ["orca_plot.exe", "orca_plot"]:
+                exe_path = os.path.join(orca_dir, name)
+                if os.path.exists(exe_path):
+                    return os.path.abspath(exe_path)
+                    
+        # 3. Fallback
+        return "orca_plot.exe" if sys.platform == "win32" else "orca_plot"
+
+    def visualize_selected_orbital(self):
+        row = self.orbitals_table.currentRow()
+        if row < 0 or row >= len(self.parsed_orbitals):
+            QMessageBox.warning(self, "Selection Error", "Please select an orbital from the table first.")
+            return
+            
+        orb = self.parsed_orbitals[row]
+        orbital_num = orb["num"]
+        isoval = self.orb_isoval_spin.value()
+        
+        job_dir = self.job_manager.get_job_dir(self.job_id)
+        orca_plot_exe = self._resolve_orca_plot()
+        
+        self.app_instance.statusBar().showMessage(f"Generating cube file for Orbital {orbital_num}...")
+        
+        self.visualize_orb_btn.setEnabled(False)
+        self.visualize_orb_btn.setText("Generiere...")
+        
+        from PyQt5.QtCore import QCoreApplication
+        QCoreApplication.processEvents()
+        
+        cube_file, err_details = generate_orbital_cube(job_dir, orca_plot_exe, orbital_num)
+        
+        self.visualize_orb_btn.setEnabled(True)
+        self.visualize_orb_btn.setText("Orbital visualisieren")
+        
+        if not cube_file or not os.path.exists(cube_file):
+            self.app_instance.statusBar().showMessage("Error: orca_plot failed.")
+            if "RESCUE" in err_details or "Cannot open GBW" in err_details:
+                QMessageBox.critical(self, "Error", 
+                    f"Failed to generate cube file for Orbital {orbital_num}.\n\n"
+                    "The wavefunction file (.gbw) is incompatible with the currently installed ORCA version.\n"
+                    "This usually happens when trying to visualize orbitals of a job calculated with an older ORCA version (e.g., ORCA 5 vs ORCA 6).")
+            else:
+                QMessageBox.critical(self, "Error", 
+                    f"Failed to generate cube file for Orbital {orbital_num}.\n"
+                    f"Make sure orca_plot is installed and in the system PATH.\n\nDetails:\n{err_details}")
+            return
+            
+        try:
+            with open(cube_file, "r", encoding="utf-8", errors="ignore") as f:
+                cube_content = f.read()
+                
+            js = f"loadOrbital({json.dumps(cube_content)}, {isoval});"
+            self.app_instance.web_view.page().runJavaScript(js)
+            self.app_instance.statusBar().showMessage(f"Visualized Orbital {orbital_num} (Isovalue: {isoval})")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load orbital in 3D viewer:\n{e}")
+
+    def visualize_density(self):
+        isoval = self.orb_isoval_spin.value()
+        job_dir = self.job_manager.get_job_dir(self.job_id)
+        orca_plot_exe = self._resolve_orca_plot()
+        
+        self.app_instance.statusBar().showMessage("Generating cube file for Electron Density...")
+        
+        self.visualize_dens_btn.setEnabled(False)
+        self.visualize_dens_btn.setText("Generiere...")
+        
+        from PyQt5.QtCore import QCoreApplication
+        QCoreApplication.processEvents()
+        
+        cube_file, err_details = generate_density_cube(job_dir, orca_plot_exe)
+        
+        self.visualize_dens_btn.setEnabled(True)
+        self.visualize_dens_btn.setText("Elektronendichte visualisieren")
+        
+        if not cube_file or not os.path.exists(cube_file):
+            self.app_instance.statusBar().showMessage("Error: orca_plot failed.")
+            if "RESCUE" in err_details or "Cannot open GBW" in err_details:
+                QMessageBox.critical(self, "Error", 
+                    "Failed to generate electron density cube file.\n\n"
+                    "The wavefunction file (.gbw) is incompatible with the currently installed ORCA version.\n"
+                    "This usually happens when trying to visualize density of a job calculated with an older ORCA version (e.g., ORCA 5 vs ORCA 6).")
+            else:
+                QMessageBox.critical(self, "Error", 
+                    "Failed to generate electron density cube file.\n"
+                    f"Make sure orca_plot is installed and in the system PATH.\n\nDetails:\n{err_details}")
+            return
+            
+        try:
+            with open(cube_file, "r", encoding="utf-8", errors="ignore") as f:
+                cube_content = f.read()
+                
+            js = f"loadDensity({json.dumps(cube_content)}, {isoval});"
+            self.app_instance.web_view.page().runJavaScript(js)
+            self.app_instance.statusBar().showMessage(f"Visualized Electron Density (Isovalue: {isoval})")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load density in 3D viewer:\n{e}")
+
+    def clear_orbital_visualization(self):
+        js = "clearSurfaces();"
+        self.app_instance.web_view.page().runJavaScript(js)
+        if hasattr(self.app_instance, "set_method_badge"):
+            self.app_instance.set_method_badge("")
+        self.app_instance.statusBar().showMessage("Orbitals/Density cleared.")
 
 
 class OrcaJobManagerWidget(QWidget):
@@ -2274,10 +3273,16 @@ class OrcaJobManagerWidget(QWidget):
                     if mol:
                         # RDKit MolFromXYZBlock returns mol without bonds, but we can construct them from SMILES or connect atoms
                         # Standard way to keep bonds: if there is an existing structure in the viewer, apply coordinates to it!
-                        func = job.get("functional") or job.get("method", "B3LYP")
-                        basis = job.get("basis", "")
+                        task = job.get("task", "Opt")
+                        use_sep = job.get("use_sep_nmr", False)
+                        if "NMR" in task and use_sep:
+                            func = job.get("nmr_method") or job.get("functional") or job.get("method", "B3LYP")
+                            basis = job.get("nmr_basis") or job.get("basis", "")
+                        else:
+                            func = job.get("functional") or job.get("method", "B3LYP")
+                            basis = job.get("basis", "")
                         b_str = f" / {basis}" if basis else ""
-                        self.app_instance.set_method_badge(f"ORCA: {func}{b_str} (Opt)")
+                        self.app_instance.set_method_badge(f"ORCA: {func}{b_str} ({task})")
 
                         if hasattr(self.app_instance, 'current_mol') and self.app_instance.current_mol:
                             target_mol = self.app_instance.current_mol

@@ -22,10 +22,12 @@ set PYTHON_EXE="%P_DIR%\WPy64-31180\python-3.11.8.amd64\python.exe"
 %PYTHON_EXE% -m pip install --no-cache-dir PyQt5 PyQtWebEngine PyQt5-sip
 echo Installing Chemical Informatics dependencies (RDKit)...
 %PYTHON_EXE% -m pip install --no-cache-dir rdkit
+echo Installing ORCA Python Interface (OPI)...
+%PYTHON_EXE% -m pip install --no-cache-dir orca-pi
 
 echo.
 echo [VERIFICATION] Checking installation...
-%PYTHON_EXE% -c "import rdkit; import PyQt5; print('Verification: RDKit and PyQt5 ready.')"
+%PYTHON_EXE% -c "import rdkit; import PyQt5; import opi; print('Verification: RDKit, PyQt5, and OPI ready.')"
 if %ERRORLEVEL% NEQ 0 (
     echo [ERROR] Installation verification failed! Some packages are corrupted.
     echo Please try running this script again.
