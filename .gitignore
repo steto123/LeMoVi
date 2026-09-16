@@ -21,3 +21,9 @@ Thumbs.db
 # ORCA jobs
 orca_jobs/
 scratch/
+
+# Benchmark datasets & tests (external)
+TestSet*
+ProbeSet*
+solvent-nmr/
+tests/
