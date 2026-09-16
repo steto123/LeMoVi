@@ -410,5 +410,17 @@
     "h1_shielding": 31.6982,
     "c13_shielding": 191.701,
     "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d.p)",
+    "geom_solvent": "gas",
+    "method": "B3LYP",
+    "basis": "aug-cc-pVDZ",
+    "nmr_solvent": "acetone",
+    "solvent_model": "SCRF",
+    "h1_shielding": 31.679,
+    "c13_shielding": 192.717,
+    "source": "-"
   }
 ]

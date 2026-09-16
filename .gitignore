@@ -27,3 +27,4 @@ TestSet*
 ProbeSet*
 solvent-nmr/
 tests/
+convert_com.py
