@@ -30,7 +30,7 @@ Ja, das ist ab jetzt sehr einfach und problemlos möglich! Da beide Repositories
 ```bash
 git push origin main
 ```
-*(Hinweis: Auf GitHub heißt der Hauptzweig aktuell noch `master`. Wenn du ihn dort auch in `main` umbenennen möchtest, kannst du das einfach in den GitHub-Einstellungen der Webseite tun und danach dorthin pushen).*
+*(Hinweis: Auf GitHub und dem Universitäts-Git ist `main` nun einheitlich als Standard-Branch eingerichtet; der alte `master`-Branch wurde entfernt).*
 
 ### 2. Änderungen auf das Universitäts-Git hochladen:
 ```bash
