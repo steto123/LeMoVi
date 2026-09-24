@@ -1076,5 +1076,61 @@
     "c13_slope": -0.9805,
     "c13_intercept": 191.9602,
     "source": "CHESHIRE-Table 5"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "Gas",
+    "method": "BMK",
+    "basis": "6-31G(d)",
+    "nmr_solvent": "Gas",
+    "solvent_model": null,
+    "h1_slope": -1.0478,
+    "h1_intercept": 32.236,
+    "c13_slope": -1.0321,
+    "c13_intercept": 195.4043,
+    "source": "CHESHIRE- Table 5"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "Gas",
+    "method": "BMK",
+    "basis": "6-31G(d)",
+    "nmr_solvent": "Acetone",
+    "solvent_model": "SCRF",
+    "h1_slope": -1.0603,
+    "h1_intercept": 32.1771,
+    "c13_slope": -1.052,
+    "c13_intercept": 196.3787,
+    "source": "CHESHIRE - Table 5"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "Gas",
+    "method": "BMK",
+    "basis": "6-311G(d)",
+    "nmr_solvent": "Gas",
+    "solvent_model": null,
+    "h1_slope": -1.0567,
+    "h1_intercept": 32.2165,
+    "c13_slope": -1.1133,
+    "c13_intercept": 188.3131,
+    "source": "CHESHIRE- Table 5"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "Gas",
+    "method": "BMK",
+    "basis": "6-311G(d)",
+    "nmr_solvent": "acetone",
+    "solvent_model": "SCRF",
+    "h1_slope": -1.0707,
+    "h1_intercept": 32.159,
+    "c13_slope": -1.1356,
+    "c13_intercept": 189.2757,
+    "source": "CHESHIRE - Table 5"
   }
 ]

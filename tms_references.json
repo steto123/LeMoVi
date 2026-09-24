@@ -422,5 +422,254 @@
     "h1_shielding": 31.679,
     "c13_shielding": 192.717,
     "source": "-"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "mPW1PW91",
+    "basis": "6-311+G(2d,p)",
+    "nmr_solvent": "gas",
+    "solvent_model": "-",
+    "h1_shielding": 31.712,
+    "c13_shielding": 186.522,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31G(d)",
+    "method": "HF",
+    "basis": "6-31G(d)",
+    "h1_shielding": 32.9035,
+    "c13_shielding": 201.7285,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31+G(d)",
+    "method": "HF",
+    "basis": "6-31+G(d)",
+    "h1_shielding": 32.819,
+    "c13_shielding": 201.8459,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31++G(d)",
+    "method": "HF",
+    "basis": "6-31++G(d)",
+    "h1_shielding": 32.8185,
+    "c13_shielding": 202.1032,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31G(d,p)",
+    "method": "HF",
+    "basis": "6-31G(d,p)",
+    "h1_shielding": 32.3358,
+    "c13_shielding": 203.1555,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31+G(d,p)",
+    "method": "HF",
+    "basis": "6-31+G(d,p)",
+    "h1_shielding": 32.2849,
+    "c13_shielding": 203.1713,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-31++G(d,p)",
+    "method": "HF",
+    "basis": "6-31++G(d,p)",
+    "h1_shielding": 32.2918,
+    "c13_shielding": 203.5056,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311G(d)",
+    "method": "HF",
+    "basis": "6-311G(d)",
+    "h1_shielding": 32.8505,
+    "c13_shielding": 195.989,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311+G(d)",
+    "method": "HF",
+    "basis": "6-311+G(d)",
+    "h1_shielding": 32.7994,
+    "c13_shielding": 195.9349,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311++G(d)",
+    "method": "HF",
+    "basis": "6-311++G(d)",
+    "h1_shielding": 32.7887,
+    "c13_shielding": 196.15,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311G(d,p)",
+    "method": "HF",
+    "basis": "6-311G(d,p)",
+    "h1_shielding": 32.4875,
+    "c13_shielding": 196.2165,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311+G(d,p)",
+    "method": "HF",
+    "basis": "6-311+G(d,p)",
+    "h1_shielding": 32.4645,
+    "c13_shielding": 195.9187,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "HF",
+    "geom_basis": "6-311++G(d,p)",
+    "method": "HF",
+    "basis": "6-311++G(d,p)",
+    "h1_shielding": 32.4549,
+    "c13_shielding": 196.1819,
+    "source": "[2]"
+  },
+  {
+    "geom_method": "B3LYP-D3 (PCM)",
+    "geom_basis": "6-311G(d,p)",
+    "method": "WP04",
+    "basis": "6-311++G(2d,p)",
+    "h1_shielding": 31.6,
+    "c13_shielding": null,
+    "source": "[3]"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31G(d,p)",
+    "geom_solvent": "-",
+    "method": "B3LYP",
+    "basis": "6-31G(d)",
+    "nmr_solvent": "-",
+    "solvent_model": "-",
+    "h1_shielding": 32.204,
+    "c13_shielding": 190.313,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "BMK",
+    "basis": "6-311G(d)",
+    "nmr_solvent": "gas",
+    "solvent_model": "-",
+    "h1_shielding": 32.158,
+    "c13_shielding": 186.12,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "BMK",
+    "basis": "6-311G(d)",
+    "nmr_solvent": "acetone",
+    "solvent_model": "SCRF",
+    "h1_shielding": 32.128,
+    "c13_shielding": 187.4,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "mPW1PW91",
+    "basis": "6-311+G(2d,p)",
+    "nmr_solvent": "acetone",
+    "solvent_model": "SCRF",
+    "h1_shielding": 31.6829,
+    "c13_shielding": 187.5945,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "PBE0",
+    "basis": "6-311+G(2d,p)",
+    "nmr_solvent": "gas",
+    "solvent_model": "-",
+    "h1_shielding": 31.661,
+    "c13_shielding": 187.251,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "PBE0",
+    "basis": "6-311+G(2d,p)",
+    "nmr_solvent": "acetone",
+    "solvent_model": "SCRF",
+    "h1_shielding": 31.631,
+    "c13_shielding": 188.3298,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "WC04",
+    "basis": "6-31G(d)",
+    "nmr_solvent": "gas",
+    "solvent_model": "-",
+    "h1_shielding": 33.349,
+    "c13_shielding": 195.474,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "WC04",
+    "basis": "6-31G(d)",
+    "nmr_solvent": "acetone",
+    "solvent_model": "SCRF",
+    "h1_shielding": 33.343,
+    "c13_shielding": 196.152,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "WO04",
+    "basis": "aug-CC-pVDZ",
+    "nmr_solvent": "gas",
+    "solvent_model": "-",
+    "h1_shielding": 31.909,
+    "c13_shielding": 186.496,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "WP04",
+    "basis": "aug-CC-pVDZ",
+    "nmr_solvent": "acetone",
+    "solvent_model": "SCRF",
+    "h1_shielding": 31.889,
+    "c13_shielding": 187.382,
+    "source": "St. Thomas"
   }
 ]
