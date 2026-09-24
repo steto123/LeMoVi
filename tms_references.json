@@ -27,6 +27,91 @@
     "source": "[3]"
   },
   {
+    "geom_method": "-",
+    "geom_basis": "-",
+    "method": "mPW1PW91",
+    "basis": "def2-TZVP",
+    "h1_shielding": 31.68,
+    "c13_shielding": 186.96,
+    "si29_shielding": 329.71,
+    "source": "ORCA 6.1.1 (LeMoVi)"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "method": "mPW1PW91",
+    "basis": "6-311+G(2d,p)",
+    "h1_shielding": 31.9,
+    "c13_shielding": 186.07,
+    "source": "CHESHIRE Table #1a"
+  },
+  {
+    "geom_method": "-",
+    "geom_basis": "-",
+    "method": "WC04",
+    "basis": "def2-TZVP",
+    "h1_shielding": 32.83,
+    "c13_shielding": 188.14,
+    "si29_shielding": 359.58,
+    "source": "ORCA 6.1.1 (LeMoVi)"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "method": "WC04",
+    "basis": "6-311+G(2d,p)",
+    "h1_shielding": null,
+    "c13_shielding": 197.7,
+    "source": "Wiitala et al. 2006"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "method": "WC04",
+    "basis": "aug-cc-pVDZ",
+    "h1_shielding": null,
+    "c13_shielding": 196.91,
+    "source": "CHESHIRE Table #1a / Wiitala 2006"
+  },
+  {
+    "geom_method": "-",
+    "geom_basis": "-",
+    "method": "WP04",
+    "basis": "def2-TZVP",
+    "h1_shielding": 32.03,
+    "c13_shielding": 178.14,
+    "si29_shielding": 317.18,
+    "source": "ORCA 6.1.1 (LeMoVi)"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "method": "WP04",
+    "basis": "aug-cc-pVDZ",
+    "h1_shielding": 31.97,
+    "c13_shielding": null,
+    "source": "CHESHIRE Table #1a / Wiitala 2006"
+  },
+  {
+    "geom_method": "-",
+    "geom_basis": "-",
+    "method": "BMK",
+    "basis": "def2-TZVP",
+    "h1_shielding": 31.75,
+    "c13_shielding": 186.24,
+    "si29_shielding": 312.61,
+    "source": "ORCA 6.1.1 (LeMoVi)"
+  },
+  {
+    "geom_method": "BMK",
+    "geom_basis": "6-31G(d)",
+    "method": "BMK",
+    "basis": "6-31G(d)",
+    "h1_shielding": 31.7,
+    "c13_shielding": 188.5,
+    "source": "Konstantinov & Broadbelt 2011"
+  },
+  {
     "geom_method": "HF",
     "geom_basis": "STO-3G",
     "method": "HF",
@@ -180,15 +265,6 @@
     "source": "[2]"
   },
   {
-    "geom_method": "k.A.",
-    "geom_basis": "k.A.",
-    "method": "HF",
-    "basis": "def2-TZVPP",
-    "h1_shielding": null,
-    "c13_shielding": 194.1,
-    "source": "[4]"
-  },
-  {
     "geom_method": "B3LYP",
     "geom_basis": "6-31G*",
     "method": "B3LYP",
@@ -216,15 +292,6 @@
     "source": "[3]"
   },
   {
-    "geom_method": "k.A.",
-    "geom_basis": "k.A.",
-    "method": "B3LYP",
-    "basis": "def2-TZVPP",
-    "h1_shielding": null,
-    "c13_shielding": 184.3,
-    "source": "[4]"
-  },
-  {
     "geom_method": "B3LYP-D3BJ (CPCM)",
     "geom_basis": "def2-TZVP",
     "method": "MP2",
@@ -232,15 +299,6 @@
     "h1_shielding": 31.81,
     "c13_shielding": null,
     "source": "[3]"
-  },
-  {
-    "geom_method": "k.A.",
-    "geom_basis": "k.A.",
-    "method": "BP86",
-    "basis": "def2-TZVPP",
-    "h1_shielding": null,
-    "c13_shielding": 184.8,
-    "source": "[4]"
   },
   {
     "geom_method": "B3LYP-D3 (CPCM)",
@@ -270,12 +328,99 @@
     "source": "[3]"
   },
   {
-    "geom_method": "k.A.",
-    "geom_basis": "k.A.",
-    "method": "ORCA-Beispielwerte (Referenz)",
-    "basis": "-",
-    "h1_shielding": 31.77,
-    "c13_shielding": 188.1,
-    "source": "[1]"
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31G**",
+    "geom_solvent": "-",
+    "method": "B3LYP",
+    "basis": "6-31G*",
+    "nmr_solvent": "-",
+    "solvent_model": "-",
+    "h1_shielding": 32.204,
+    "c13_shielding": 190.313,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "B3LYP",
+    "basis": "6-31G(d)",
+    "nmr_solvent": "Acetone",
+    "solvent_model": "SCRF",
+    "h1_shielding": 32.179,
+    "c13_shielding": 191.232,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "B3LYP",
+    "basis": "6-311+G(2d,p)",
+    "nmr_solvent": "gas",
+    "solvent_model": "-",
+    "h1_shielding": 31.834,
+    "c13_shielding": 182.537,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "B3LYP",
+    "basis": "6-311+G(2d,p)",
+    "nmr_solvent": "Acetone",
+    "solvent_model": "SCRF",
+    "h1_shielding": 31.812,
+    "c13_shielding": 183.608,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "B3LYP",
+    "basis": "cc-pVDZ",
+    "nmr_solvent": "gas",
+    "solvent_model": "-",
+    "h1_shielding": 31.5268,
+    "c13_shielding": 193.732,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "B3LYP",
+    "basis": "cc-pVDZ",
+    "nmr_solvent": "Acetone",
+    "solvent_model": "SCRF",
+    "h1_shielding": 31.507,
+    "c13_shielding": 194.543,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d,p)",
+    "geom_solvent": "gas",
+    "method": "B3LYP",
+    "basis": "aug-cc-pVDZ",
+    "nmr_solvent": "gas",
+    "solvent_model": "-",
+    "h1_shielding": 31.6982,
+    "c13_shielding": 191.701,
+    "source": "St. Thomas"
+  },
+  {
+    "geom_method": "B3LYP",
+    "geom_basis": "6-31+G(d.p)",
+    "geom_solvent": "gas",
+    "method": "B3LYP",
+    "basis": "aug-cc-pVDZ",
+    "nmr_solvent": "acetone",
+    "solvent_model": "SCRF",
+    "h1_shielding": 31.679,
+    "c13_shielding": 192.717,
+    "source": "-"
   }
 ]

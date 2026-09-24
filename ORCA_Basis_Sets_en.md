@@ -106,14 +106,21 @@ Calculated isotropic shieldings ($\sigma$) are converted to chemical shifts ($\d
 $$\delta = \sigma_{\text{ref}} - \sigma_{\text{calculated}}$$
 
 LeMoVi includes an integrated, fully extensible **TMS Reference Database** (`tms_references.json`) containing over 30 quantum-chemical and experimental reference values for $^1\text{H}$ and $^{13}\text{C}$ (e.g. HF, B3LYP, MP2, BP86, WP04, as well as experimental gas and liquid values).
-* **Automatic Recommendation:** After completing an NMR job, the system automatically suggests the best-matching TMS reference value for the chosen functional and basis set.
-* **User Customization:** Via the **TMS-Referenzen...** button, users can view, filter, edit, add, or delete any reference values.
+* **Automatic Recommendation:** After completing an NMR job, the system automatically suggests the best-matching TMS reference value for the chosen functional, basis set, solvents, and solvation models (analogous to Tantillo shift scaling).
+* **User Customization:** Via the **TMS-Referenzen...** button, users can view, filter, edit, add, or delete any reference values. The database supports mapping geometry and NMR solvents as well as solvation models.
 * **Tantillo Shift Scaling (`tantillo_scaling.json`):** In addition to standard TMS subtraction, LeMoVi supports linear scaling per Tantillo et al. ($\delta = (\sigma_{\text{calc}} - \text{Intercept}) / \text{Slope}$). Via the **Tantillo-Skalierungen...** button, users can manage, edit, add, or reset all slope and intercept parameters.
-* **3D Viewer Integration:** Calculated chemical shifts can be overlaid on the 3D molecule viewer as interactive labels.
+* **Symmetry Averaging:** The system automatically calculates symmetry ranks for all atoms using RDKit topological and fragment geometry analysis. An additional column for symmetry-averaged chemical shifts is displayed in the NMR tables.
+* **3D Viewer & Spectrum Integration:** Calculated chemical shifts (either standard or symmetry-averaged) can be overlaid on the 3D molecule viewer as interactive labels or plotted in the NMR Spectrum tab.
 
+### D. Specialized NMR Density Functionals (WC04, WP04, BMK, mPW1PW91)
+For high-accuracy NMR predictions, LeMoVi supports established specialized functionals from the literature:
+* **`WC04` (Wiitala-Cramer 2004):** Hybrid GGA functional parameterized specifically to minimize mean errors in $^{13}\text{C}$ chemical shifts. Combines modified Becke exchange with modified correlation. Seamlessly integrated via LibXC (`functional hyb_gga_xc_wc04`) in ORCA 6.
+* **`WP04` (Wiitala-Peverati 2004/2007):** Companion functional to WC04, specifically optimized for $^1\text{H}$ chemical shifts. Seamlessly integrated via LibXC (`functional hyb_gga_xc_wp04`).
+* **`BMK` (Boese-Martin for Kinetics):** Meta-GGA hybrid functional with 42% HF exchange. In addition to reaction barriers and kinetics, it is widely utilized in CHESHIRE and Tantillo linear scaling NMR protocols. Integrated via LibXC (`exchange hyb_mgga_x_bmk`, `correlation gga_c_bmk`).
+* **`mPW1PW91` (modified PW91):** One of the most popular benchmarking standards for DFT NMR calculations (including Tantillo and Sarotti linear scaling). Handled natively in ORCA via the `mPW1PW` keyword.
+* **Automated ORCA 6 Syntax Handling:** LeMoVi automatically determines whether a functional requires simple keyword specification or a `%method ... end` LibXC block, formatting both single-step and two-step (`%Compound` Opt + NMR) inputs error-free. Calibrated TMS reference shieldings and linear scaling factors are preloaded.
 
-
-### D. IR Spectra & Vibration Animations
+### E. IR Spectra & Vibration Animations
 Under **Vibrational Frequencies**, all calculated normal modes are listed with frequencies and IR intensities:
 * Selecting a row and clicking **Animate Selected Mode** will animate the molecule's vibration in the 3D viewer based on the actual quantum-chemical displacement vectors.
 * Clicking it again stops the animation and restores the static structure.
