@@ -1,0 +1,21 @@
+{
+    "ssh": {
+        "host": "login1.hpc.uni-potsdam.de",
+        "user": "sthomas",
+        "key_path": "C:\\Users\\wotan\\.ssh\\id_ed25519",
+        "remote_dir": "/work/sthomas/orca6"
+    },
+    "job": {
+        "partition": "all",
+        "nodes": "1",
+        "ntasks": "4",
+        "mem": "8G",
+        "time": "0-01:00"
+    },
+    "environment": [
+        "export MODULEPATH=/srv/software/eb24/modules/all:$MODULEPATH",
+        "module load chem/ORCA/6.0.0-gompi-2023b",
+        "module load mpi/OpenMPI",
+        "export OMP_NUM_THREADS=$SLURM_CPUS_PER_TASK"
+    ]
+}

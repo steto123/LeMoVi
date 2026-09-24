@@ -36,6 +36,7 @@ Dieses Projekt ermöglicht die Eingabe von chemischen Strukturen über den 2D-Ed
   - **Tantillo/CHESHIRE Skalierung**: Anwendung von Skalierungsfaktoren ($ \delta = \text{intercept} + \text{slope} \times \sigma $) für GIAO-NMR-Berechnungen direkt aus einer Datenbank mit 64 vordefinierten CHESHIRE-Literaturwerten. Das System wählt automatisch den besten Treffer basierend auf NMR-Methode, Basissatz und Lösungsmittel/Modell aus. Enthält einen interaktiven Betrachter und Editor für die Skalierungsdatenbank.
   - **Dispersionskorrekturen**: Native Unterstützung für Grimmes `D4`- und `D3BJ`-Dispersionskorrekturen.
   - **Job-Manager**: Hintergrund-Job-Warteschlange. Überwache den Ausführungsstatus, betrachte das Live-Protokoll (`orca_output.out`), beende Berechnungen und lade optimierte Geometrien direkt zurück in den 3D-Viewer.
+  - **SLURM Cluster Integration**: Jobs direkt auf einem HPC-Cluster via SSH einreichen und überwachen, ohne die App zu verlassen. Module, HPC-Partitionen und Parameter können extern in der Datei `slurm_settings.json` konfiguriert werden.
 
 ## xTB Integration (Optional)
 Um die xTB-Optimierung nutzen zu können, muss die externe Binary hinterlegt werden:

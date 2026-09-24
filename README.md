@@ -36,6 +36,7 @@ This project allows the input of chemical structures via the **Ketcher** 2D edit
   - **Tantillo/CHESHIRE Scaling**: Apply scaling factors ($ \delta = \text{intercept} + \text{slope} \times \sigma $) for GIAO NMR calculations directly from a database of 64 pre-defined CHESHIRE literature scaling entries. The system automatically prioritizes the best match using the NMR method, basis, and solvent from the job metadata. Includes an interactive scaling database viewer and editor.
   - **Dispersion Corrections**: Native support for Grimme's `D4` and `D3BJ` dispersion corrections.
   - **Job Manager**: Background job queue manager. Monitor execution states, view live execution log files (`orca_output.out`), terminate calculations, and load optimized geometries directly back into the 3D visualizer.
+  - **SLURM Cluster Integration**: Directly submit and monitor jobs on an HPC cluster via SSH without leaving the app. Custom modules, HPC partitions, and parameters can be configured externally in the `slurm_settings.json` file.
 
 ## xTB Integration (Optional)
 To use xTB optimization, the external binary must be provided:
